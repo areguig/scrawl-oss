@@ -69,7 +69,7 @@ git clone https://github.com/areguig/scrawl-oss && cd scrawl-oss
 docker compose up -d
 ```
 
-Scrawl runs on port 8787 and keeps its data in the `scrawl-data` volume. Put it behind a reverse proxy with HTTPS (Caddy, Traefik, nginx).
+Scrawl listens on `127.0.0.1:8787` and keeps its data in the `scrawl-data` volume. Point a reverse proxy with HTTPS at it (Caddy, Traefik, nginx). To reach it from other machines on a private network, change `127.0.0.1` to `0.0.0.0` in `docker-compose.yml`.
 
 No Docker? `bun install && bun start` (Bun 1.4 or newer).
 
