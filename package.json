@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "pad:delete": "node scripts/pad-delete.mjs",
@@ -21,5 +21,24 @@
     "typescript": "^7.0.2",
     "vitest": "^4.1.12",
     "wrangler": "^4.151.3"
+  },
+  "cloudflare": {
+    "bindings": {
+      "PAD_DOMAIN": {
+        "description": "Leave empty to serve pages under `/p/<id>`. Set it to your domain (for example `pads.example.com`) once that domain and `*.pads.example.com` point to this Worker, so each page gets its own subdomain."
+      },
+      "PUBLISH_LIMIT": {
+        "description": "New pages one client address may publish per `PUBLISH_WINDOW_SECONDS`."
+      },
+      "PAD_TTL_DAYS": {
+        "description": "Days a page lives after its last update, unless the agent asks for longer (up to `PAD_MAX_TTL_DAYS`)."
+      },
+      "REPORT_HIDE_THRESHOLD": {
+        "description": "Reports from different readers before a page is hidden for review."
+      },
+      "CDN_ALLOWLIST": {
+        "description": "Space-separated hosts pages may load scripts and styles from."
+      }
+    }
   }
 }

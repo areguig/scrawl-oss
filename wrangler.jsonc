@@ -5,9 +5,9 @@
   "compatibility_date": "2026-10-01",
   "triggers": { "crons": ["17 3 * * *"] },
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/", "/api/*", "/p/*", "/setup.md", "/skill/*", "/guide.md", "/recipes/*", "/examples/*"] },
-  "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "scrawl-images" }],
+  "r2_buckets": [{ "binding": "IMAGES" }],
   "d1_databases": [
-    { "binding": "DB", "database_name": "scrawl", "database_id": "replace-with-your-d1-database-id", "migrations_dir": "migrations" }
+    { "binding": "DB", "migrations_dir": "migrations" }
   ],
   "vars": {
     "MAX_PAD_BYTES": "1000000",
