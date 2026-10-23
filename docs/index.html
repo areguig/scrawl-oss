@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scrawl: open-source scratchpad for AI agents</title>
+  <meta name="description" content="Your AI agent makes a page, you get a link. Open source, MIT. Run it on Cloudflare's free plan, with Docker or on Coolify.">
+  <meta property="og:title" content="Scrawl: open-source scratchpad for AI agents">
+  <meta property="og:description" content="Your AI agent makes a page, you get a link. Run your own on Cloudflare, Docker or Coolify.">
+  <meta property="og:image" content="https://areguig.github.io/scrawl-oss/screenshot.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="home.css">
+  <style>
+    .actions { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-6); align-items: center; }
+    .page a.btn-main, .page a.btn-alt { display: inline-flex; align-items: center; padding: var(--s-3) var(--s-5); border-radius: 999px; font-weight: 600; text-decoration: none; }
+    .page a.btn-main { background: var(--accent); color: var(--accent-ink); }
+    .page a.btn-alt { border: 1px solid var(--border); color: var(--text); background: var(--surface); }
+    .shot { display: block; width: 100%; height: auto; margin-top: var(--s-7); border-radius: var(--r-lg); border: 1px solid var(--border); }
+    .runs { display: grid; gap: var(--s-4); grid-template-columns: minmax(0, 1fr); }
+    .run { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-3); }
+    .run h3 { margin: 0; font-size: 1.15rem; }
+    .run p { margin: 0; color: var(--text-2); }
+    .run .code { margin-top: auto; }
+    .run .code-pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (min-width: 900px) { .runs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .page .features { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <nav class="nav">
+    <span class="nav-logo"><span class="nav-mark" aria-hidden="true"></span>Scrawl</span>
+    <a class="nav-link" href="https://github.com/areguig/scrawl-oss">GitHub</a>
+  </nav>
+
+  <header class="hero" style="display:block">
+    <p class="eyebrow">Open source · MIT · Free to self-host</p>
+    <h1 class="hero-title">Scrawl</h1>
+    <p class="hero-tagline">Your AI agent makes a page. You get a link.</p>
+    <p class="hero-lede">Charts, comparisons, checklists and calculators: one HTML page, published with one request, readable on any phone. Run your own instance in a few minutes.</p>
+    <div class="actions">
+      <a class="btn-main" href="#run">Run your own</a>
+      <a class="btn-alt" href="https://scrawls.dev">Try scrawls.dev</a>
+      <a class="btn-alt" href="https://github.com/areguig/scrawl-oss">Source on GitHub</a>
+    </div>
+    <img class="shot" src="screenshot.png" alt="Three pages made by agents with Scrawl: a support dashboard, a phone comparison and a packing checklist" width="1600" height="820">
+  </header>
+
+  <section class="section" aria-labelledby="why-title">
+    <h2 id="why-title" class="section-title">Why Scrawl</h2>
+    <div class="features">
+      <article class="feature"><h3 class="feature-title">Works with small models</h3><p>Fourteen recipes and a ready theme. The publish reply lists what to fix, from missing titles to broken JavaScript.</p></article>
+      <article class="feature"><h3 class="feature-title">Looks good everywhere</h3><p>Phone first, light and dark mode, built on Tailwind, daisyUI and Alpine.js.</p></article>
+      <article class="feature"><h3 class="feature-title">Safe to share</h3><p>Each page runs sandboxed on its own address. Readers can report abuse; pages expire after 30 days.</p></article>
+      <article class="feature"><h3 class="feature-title">Nothing to install</h3><p>Any agent that can fetch a URL can publish. Claude Code, Copilot CLI and OpenCode get a one-line skill.</p></article>
+    </div>
+  </section>
+
+  <section class="section" id="run" aria-labelledby="run-title">
+    <h2 id="run-title" class="section-title">Run your own</h2>
+    <div class="runs">
+      <article class="run">
+        <h3>Cloudflare</h3>
+        <p>Free plan. One click creates the database and image storage and deploys.</p>
+        <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/areguig/scrawl-oss"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare" height="32"></a>
+      </article>
+      <article class="run">
+        <h3>Docker</h3>
+        <p>Any VPS or homelab. Data stays in one volume; put a reverse proxy with HTTPS in front.</p>
+        <div class="code"><pre class="code-pre"><code>git clone https://github.com/areguig/scrawl-oss
+cd scrawl-oss
+docker compose up -d</code></pre></div>
+      </article>
+      <article class="run">
+        <h3>Coolify</h3>
+        <p>New resource → Public repository → this repo, build pack Docker Compose. Set the domain and deploy.</p>
+        <div class="code"><pre class="code-pre"><code>https://github.com/areguig/scrawl-oss</code></pre></div>
+      </article>
+    </div>
+    <p class="note">For a public instance, give each page its own subdomain with a wildcard domain. The <a href="https://github.com/areguig/scrawl-oss#one-subdomain-per-page">README explains how</a>, along with all settings.</p>
+  </section>
+
+  <footer class="footer"><span>MIT licence</span><span class="footer-links"><a href="https://github.com/areguig/scrawl-oss">GitHub</a><a href="https://scrawls.dev">scrawls.dev</a></span></footer>
+</div>
+</body>
+</html>

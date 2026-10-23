@@ -1,53 +1,112 @@
-# Scrawl
+<p align="center">
+  <img src="public/favicon.svg" width="72" height="72" alt="">
+</p>
 
-A scratchpad for AI agents. An agent writes one HTML page, publishes it with one request, and you get a link that works on any phone.
+<h1 align="center">Scrawl</h1>
 
-- **Made for small models:** 14 recipes, a theme built on Tailwind, daisyUI and Alpine.js, and a publish reply that lists what to fix.
-- **Safe to share:** each page runs sandboxed on its own subdomain, readers can report abuse, password fields are refused.
-- **Short-lived:** a page expires 30 days after its last update (up to a year on request).
+<p align="center">
+  <strong>Your AI agent makes a page. You get a link.</strong><br>
+  Charts, comparisons, checklists, calculators: one HTML page, published with one request, readable on any phone.
+</p>
 
-Try it at [scrawls.dev](https://scrawls.dev): paste the setup prompt into Claude Code, Copilot CLI, OpenCode or any agent that can fetch URLs.
+<p align="center">
+  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/areguig/scrawl-oss"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare"></a>
+</p>
 
-## Self-host
+<p align="center">
+  <a href="https://scrawls.dev">Try it on scrawls.dev</a> ·
+  <a href="https://areguig.github.io/scrawl-oss/">Website</a> ·
+  <a href="#run-your-own">Run your own</a>
+</p>
 
-### Cloudflare (fits the free plan)
+<p align="center">
+  <img src="docs/screenshot.png" alt="Three pages made by agents with Scrawl: a support dashboard, a phone comparison and a packing checklist">
+</p>
+
+## Why Scrawl
+
+- **Works with small models.** Agents start from one of 14 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript.
+- **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
+- **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days.
+- **Nothing to install.** Any agent that can fetch a URL can publish. Claude Code, Copilot CLI, OpenCode and others get a one-line skill.
+
+## Try it
+
+Paste this into your agent:
+
+```
+Fetch and follow the instructions at https://scrawls.dev/setup.md to set me up for Scrawl.
+```
+
+Then ask for something visual: *"Compare these three laptops for me and send me a link."*
+
+## Run your own
+
+| | Cloudflare | Docker | Coolify |
+|---|---|---|---|
+| **Best for** | a free public instance | a VPS or a homelab | if you already run Coolify |
+| **Cost** | free plan | your server | your server |
+| **Setup** | one click | one command | a few clicks |
+
+### Cloudflare
+
+Click **Deploy to Cloudflare** above. It copies this repository to your GitHub account, creates the database and image storage, and deploys. Your instance runs at `https://scrawl.<you>.workers.dev`.
+
+<details>
+<summary>Or deploy from your computer</summary>
 
 ```sh
+git clone https://github.com/areguig/scrawl-oss && cd scrawl-oss
 npm install
-npx wrangler d1 create scrawl            # put the database_id in wrangler.jsonc
-npx wrangler r2 bucket create scrawl-images
-npx wrangler d1 migrations apply scrawl --remote
-npx wrangler deploy
+npm run deploy      # creates the database and storage on first run
 ```
+</details>
 
-This runs on your `workers.dev` address, with pages under `/p/<id>`.
-
-To give each page its own subdomain on your domain (recommended for a public instance):
-
-1. In `wrangler.jsonc`, set `"PAD_DOMAIN": "example.com"` and add the routes:
-   `"routes": [{ "pattern": "example.com", "custom_domain": true }, { "pattern": "*.example.com/*", "zone_name": "example.com" }]`
-2. In Cloudflare DNS, add a proxied record: type `AAAA`, name `*`, address `100::`.
-3. Deploy again.
-
-### Docker (VPS, homelab, Coolify)
+### Docker
 
 ```sh
-docker compose up -d     # http://localhost:8787, data in the scrawl-data volume
+git clone https://github.com/areguig/scrawl-oss && cd scrawl-oss
+docker compose up -d
 ```
 
-Or without Docker: `bun install && bun src/selfhost/main.ts` (needs Bun 1.4+).
+Scrawl runs on port 8787 and keeps its data in the `scrawl-data` volume. Put it behind a reverse proxy with HTTPS (Caddy, Traefik, nginx).
 
-Put a reverse proxy with HTTPS in front. It must pass `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`, which Caddy and Traefik do by default.
+No Docker? `bun install && bun start` (Bun 1.4 or newer).
 
-| Mode | Needs | Use for |
-|---|---|---|
-| Path, `/p/<id>` (default) | nothing | private or LAN use: pages share one origin, so one page can read another's saved data |
-| Subdomain, `<id>.example.com` | `PAD_DOMAIN`, a wildcard DNS record and a wildcard certificate | any public instance |
+### Coolify
 
-A wildcard certificate needs the DNS challenge. With Caddy (built with your DNS provider's module):
+1. **New resource → Public repository**, paste `https://github.com/areguig/scrawl-oss`.
+2. Choose **Docker Compose** as the build pack.
+3. Set the domain of the `scrawl` service, for example `https://scrawl.example.com`, and deploy.
+
+## One subdomain per page
+
+By default pages live at `https://your-host/p/<id>`. That is fine for private use, but on a public instance give each page its own subdomain (`https://<id>.your-domain`): browsers then keep every page's saved data and cookies apart, and saving ticks and inputs works properly.
+
+You need:
+
+1. A wildcard DNS record, `*.your-domain`, pointing to Scrawl.
+2. A wildcard HTTPS certificate.
+3. The setting `PAD_DOMAIN=your-domain`.
+
+<details>
+<summary>How to set it up on Cloudflare, Caddy or Coolify</summary>
+
+**Cloudflare:** add a proxied DNS record (type `AAAA`, name `*`, address `100::`), then add to `wrangler.jsonc`:
+
+```jsonc
+"routes": [
+  { "pattern": "your-domain", "custom_domain": true },
+  { "pattern": "*.your-domain/*", "zone_name": "your-domain" }
+]
+```
+
+and set `"PAD_DOMAIN": "your-domain"` in `vars`. Cloudflare covers the wildcard certificate.
+
+**Caddy** (built with your DNS provider's module, for the wildcard certificate):
 
 ```
-example.com, *.example.com {
+your-domain, *.your-domain {
 	tls {
 		dns cloudflare {env.CF_API_TOKEN}
 	}
@@ -55,32 +114,45 @@ example.com, *.example.com {
 }
 ```
 
-On Coolify, set the domains to `https://example.com,https://*.example.com` and configure a wildcard certificate for Traefik.
+**Coolify:** set the domains to `https://your-domain,https://*.your-domain` and configure a wildcard certificate in Traefik with a DNS challenge.
+</details>
 
-### Settings
+## Settings
 
-All settings live in `vars` in `wrangler.jsonc`. When self-hosting, an environment variable with the same name overrides one, for example `PUBLISH_LIMIT=50`. `DATA_DIR` (default `./data`) and `PORT` (default `8787`) set where data lives and which port to listen on.
+<details>
+<summary>All settings and their defaults</summary>
+
+Settings live in `vars` in `wrangler.jsonc`. When you run Scrawl with Docker or Bun, an environment variable with the same name overrides each one, for example `PUBLISH_LIMIT=50`.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `PAD_DOMAIN` | empty | domain whose subdomains serve pages |
-| `PUBLISH_LIMIT`, `PUBLISH_WINDOW_SECONDS` | 20, 3600 | new pages per client address per window |
+| `PAD_DOMAIN` | empty | your domain, to give each page its own subdomain |
+| `PUBLISH_LIMIT` | 20 | new pages per client address per window |
+| `PUBLISH_WINDOW_SECONDS` | 3600 | length of that window |
 | `MAX_PAD_BYTES` | 1000000 | largest page |
-| `PAD_TTL_DAYS`, `PAD_MAX_TTL_DAYS` | 30, 365 | default and longest page lifetime |
-| `IMAGE_MAX_BYTES`, `IMAGE_MAX_PER_PAD` | 2000000, 20 | uploaded images |
+| `PAD_TTL_DAYS` | 30 | days a page lives after its last update |
+| `PAD_MAX_TTL_DAYS` | 365 | longest life an agent may ask for |
+| `IMAGE_MAX_BYTES` | 2000000 | largest uploaded image |
+| `IMAGE_MAX_PER_PAD` | 20 | images per page |
 | `REPORT_HIDE_THRESHOLD` | 3 | reports from different readers before a page is hidden |
-| `CDN_ALLOWLIST` | jsDelivr, cdnjs, unpkg, Tailwind, Google Fonts, esm.sh | hosts pages may load scripts and styles from |
+| `CDN_ALLOWLIST` | jsDelivr, cdnjs, unpkg, Tailwind, Google Fonts, esm.sh | hosts pages may load code from |
 
-Reports are reviewed by hand: `SELECT * FROM reports`, and `UPDATE pads SET hidden_at = NULL WHERE id = '...'` to restore a page.
+With Docker or Bun, `DATA_DIR` (default `./data`) and `PORT` (default `8787`) set where data lives and the port.
+
+**Reviewing reports:** `SELECT * FROM reports` lists them. To restore a hidden page, run `UPDATE pads SET hidden_at = NULL WHERE id = '<id>'`.
+</details>
 
 ## Develop
 
 ```sh
-npm test               # Cloudflare runtime (vitest + workerd)
+npm install
+npm test               # Cloudflare runtime
 npm run test:selfhost  # Bun runtime
 npm run typecheck
 ```
 
+The app is one [Hono](https://hono.dev) Worker in `src/`. `src/selfhost/` runs the same code on Bun with SQLite and files on disk.
+
 ## License
 
-MIT
+[MIT](LICENSE)
