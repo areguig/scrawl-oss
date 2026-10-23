@@ -80,6 +80,7 @@ body {
   border-radius: 4px 10px 4px 10px;
   background: var(--accent);
 }
+.nav-links { display: flex; gap: var(--s-5); }
 .page .nav-link { font-family: var(--mono); font-size: 0.85rem; color: var(--text-2); text-decoration: none; }
 .page .nav-link:hover { color: var(--text); }
 
