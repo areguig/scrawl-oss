@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Six HTTP status codes explain most of the web</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-3xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">HTTP status codes · 6 answers</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Six HTTP status codes explain most of the web</h1>
+    <p class="text-lg opacity-70 mt-3">2xx means it worked, 3xx means look elsewhere, 4xx is your fault, 5xx is the server's. Tap a code to open it.</p>
+  </header>
+
+  <div class="space-y-3">
+    <details open class="collapse collapse-plus bg-base-100 border border-base-300">
+      <summary class="collapse-title text-lg font-medium"><span class="badge badge-success badge-outline mr-2">200</span>OK</summary>
+      <div class="collapse-content"><p>The request worked and the response holds what you asked for. It is the code behind almost every page you load.</p></div>
+    </details>
+    <details class="collapse collapse-plus bg-base-100 border border-base-300">
+      <summary class="collapse-title text-lg font-medium"><span class="badge badge-info badge-outline mr-2">301</span>Moved Permanently</summary>
+      <div class="collapse-content"><p>The page now lives at a new address, given in the Location header. Browsers and search engines follow it and remember the change.</p></div>
+    </details>
+    <details class="collapse collapse-plus bg-base-100 border border-base-300">
+      <summary class="collapse-title text-lg font-medium"><span class="badge badge-warning badge-outline mr-2">401</span>Unauthorized</summary>
+      <div class="collapse-content"><p>You need to sign in first, or your credentials were wrong. Send valid credentials and try again.</p></div>
+    </details>
+    <details class="collapse collapse-plus bg-base-100 border border-base-300">
+      <summary class="collapse-title text-lg font-medium"><span class="badge badge-warning badge-outline mr-2">403</span>Forbidden</summary>
+      <div class="collapse-content"><p>The server knows who you are and still refuses. Signing in again will not help: you lack permission for this resource.</p></div>
+    </details>
+    <details class="collapse collapse-plus bg-base-100 border border-base-300">
+      <summary class="collapse-title text-lg font-medium"><span class="badge badge-warning badge-outline mr-2">404</span>Not Found</summary>
+      <div class="collapse-content"><p>Nothing exists at this address. Check the URL for typos, or the page may have been removed.</p></div>
+    </details>
+    <details class="collapse collapse-plus bg-base-100 border border-base-300">
+      <summary class="collapse-title text-lg font-medium"><span class="badge badge-error badge-outline mr-2">500</span>Internal Server Error</summary>
+      <div class="collapse-content"><p>The server hit an unexpected problem. Nothing is wrong with your request, so retry later or tell the site owner.</p></div>
+    </details>
+  </div>
+
+  <footer class="text-sm opacity-60">Source: RFC 9110, HTTP Semantics, October 2026.</footer>
+</main>
+</body>
+</html>

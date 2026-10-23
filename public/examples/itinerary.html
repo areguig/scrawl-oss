@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lisbon in two days: hills, tiles and sunsets</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-3xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">Lisbon · 2 days</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Lisbon in two days: old town first, riverside second</h1>
+    <p class="text-lg opacity-70 mt-3">Short walks, one tram, and a long dinner each evening. Everything is within 30 minutes of the center.</p>
+  </header>
+
+  <div role="alert" class="alert alert-info"><i data-lucide="info"></i><span>Wear flat shoes: the hills and cobbles are steep. Tram 28 is packed after 10:00, so ride it early or walk.</span></div>
+
+  <section class="space-y-4"
+    x-data='{
+      day: 0,
+      days: [
+        { name: "Day 1", area: "Alfama and Baixa", stops: [
+          { time: "09:00 Morning", title: "Miradouro da Senhora do Monte", note: "The best view of the city, and quiet before the crowds. Take tram 28 up, walk down." },
+          { time: "13:00 Lunch", title: "Time Out Market", note: "Share small plates from a dozen stalls. Try the pasteis de bacalhau." },
+          { time: "15:00 Afternoon", title: "Castelo de Sao Jorge", note: "Walk the castle walls and wander the Alfama lanes on the way down." },
+          { time: "20:00 Evening", title: "Taberna da Rua das Flores", note: "Small-plate dinner in the Chiado. No bookings, so arrive early." }
+        ] },
+        { name: "Day 2", area: "Belem and the river", stops: [
+          { time: "09:30 Morning", title: "Mosteiro dos Jeronimos", note: "Go at opening time to skip the queue. The cloister is the highlight." },
+          { time: "11:30 Snack", title: "Pasteis de Belem", note: "The original custard tart, still warm. Sit inside, the line moves fast." },
+          { time: "14:00 Afternoon", title: "Torre de Belem", note: "Walk the riverside path from the monastery, about 15 minutes." },
+          { time: "19:30 Evening", title: "LX Factory", note: "Converted factory with shops and restaurants, a calm end to the trip." }
+        ] }
+      ]
+    }'>
+    <div role="tablist" class="tabs tabs-boxed bg-base-100 border border-base-300 flex-nowrap overflow-x-auto">
+      <template x-for="(d, i) in days" :key="i">
+        <button role="tab" class="tab flex-1 whitespace-nowrap" :class="day === i && 'tab-active'" @click="day = i" x-text="d.name"></button>
+      </template>
+    </div>
+
+    <div class="card bg-base-100">
+      <div class="card-body">
+        <h2 class="card-title" x-text="days[day].name + ': ' + days[day].area"></h2>
+        <ul class="timeline timeline-vertical timeline-compact timeline-snap-icon">
+          <template x-for="(s, i) in days[day].stops" :key="day + '-' + i">
+            <li>
+              <div class="timeline-middle text-primary"><i data-lucide="circle-dot" class="w-5 h-5"></i></div>
+              <div class="timeline-end mb-6 mt-0.5">
+                <p class="text-sm font-semibold text-primary" x-text="s.time"></p>
+                <p class="font-semibold" x-text="s.title"></p>
+                <p class="opacity-70" x-text="s.note"></p>
+                <a class="link link-primary text-sm" target="_blank" rel="noopener" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.title + ' Lisbon')">Map</a>
+              </div>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: sample plan invented for this page, October 2026. Hours and prices change, check before you go.</footer>
+</main>
+</body>
+</html>

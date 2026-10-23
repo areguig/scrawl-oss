@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDIT: quiz title</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-3xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">EDIT: topic · number of questions</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">EDIT: quiz title</h1>
+    <p class="text-lg opacity-70 mt-3">EDIT: what it covers. Pick an answer for each, then check.</p>
+  </header>
+
+  <!-- EDIT: questions. answer is the index of the right choice, counting from 0. why is shown after checking. Use double quotes, no apostrophes. -->
+  <div x-data='{
+      questions: [
+        { q: "EDIT: Which planet is closest to the Sun?", choices: ["Venus", "Mercury", "Mars", "Earth"], answer: 1, why: "Mercury orbits closest, about 58 million km away." },
+        { q: "EDIT: Which planet is the largest?", choices: ["Saturn", "Neptune", "Jupiter", "Uranus"], answer: 2, why: "Jupiter is more than twice as massive as all other planets combined." }
+      ],
+      picked: {}, checked: false,
+      get score() { return this.questions.filter((x, i) => this.picked[i] === x.answer).length },
+      reset() { this.picked = {}; this.checked = false }
+    }' class="space-y-6">
+
+    <template x-for="(item, i) in questions" :key="i">
+      <section class="card bg-base-100">
+        <div class="card-body gap-3">
+          <h2 class="card-title text-lg" x-text="(i + 1) + '. ' + item.q"></h2>
+          <div class="space-y-2">
+            <template x-for="(c, j) in item.choices" :key="j">
+              <label class="flex items-center gap-3 rounded-btn border border-base-300 px-4 py-3 cursor-pointer"
+                :class="checked && j === item.answer ? 'border-success bg-success/10' : (checked && picked[i] === j ? 'border-error bg-error/10' : '')">
+                <input type="radio" class="radio radio-primary" :name="'q' + i" :value="j" x-model.number="picked[i]" :disabled="checked">
+                <span x-text="c"></span>
+              </label>
+            </template>
+          </div>
+          <p class="text-sm opacity-70" x-show="checked" x-text="item.why"></p>
+        </div>
+      </section>
+    </template>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="btn btn-primary" @click="checked = true" x-show="!checked">Check answers</button>
+      <button class="btn btn-ghost" @click="reset()" x-show="checked">Start over</button>
+      <div role="alert" class="alert alert-success flex-1" x-show="checked" x-cloak><i data-lucide="trophy"></i><span class="font-semibold" x-text="'You scored ' + score + ' of ' + questions.length"></span></div>
+    </div>
+  </div>
+
+  <footer class="text-sm opacity-60">Source: EDIT source or note.</footer>
+</main>
+</body>
+</html>

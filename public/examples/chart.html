@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signups doubled since spring</title>
+  <script src="/scrawl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">New accounts per month · January to October 2026</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Signups doubled since spring</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">842 new accounts in October, up from 310 in January. The jump came in April.</p>
+  </header>
+
+  <section class="card bg-base-100">
+    <div class="card-body">
+      <h2 class="card-title">New accounts per month</h2>
+      <div class="relative h-72 md:h-96"><canvas id="chart"></canvas></div>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: sample data invented for this page, October 2026.</footer>
+</main>
+
+<script>
+  const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"];
+  const values = [310, 340, 365, 540, 610, 655, 700, 760, 790, 842];
+  const type = "line";
+  const seriesName = "Signups";
+
+  // Do not edit below: colors come from the theme and redraw on dark mode change.
+  let chart;
+  function draw() {
+    const css = getComputedStyle(document.documentElement);
+    const c = (v) => `oklch(${css.getPropertyValue(v).trim()})`;
+    const text = `oklch(${css.getPropertyValue("--bc").trim()} / 0.6)`;
+    const grid = `oklch(${css.getPropertyValue("--bc").trim()} / 0.1)`;
+    const round = type === "doughnut" || type === "pie";
+    const palette = [c("--p"), c("--s"), c("--a"), c("--in"), c("--su"), c("--er")];
+    const colors = round ? labels.map((_, i) => palette[i % palette.length]) : c("--p");
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById("chart"), {
+      type,
+      data: { labels, datasets: [{ label: seriesName, data: values, backgroundColor: colors, borderColor: round ? c("--b1") : c("--p"), borderRadius: 6, tension: 0.3 }] },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: round, labels: { color: text } } },
+        scales: round ? {} : { x: { ticks: { color: text }, grid: { color: grid } }, y: { beginAtZero: true, ticks: { color: text }, grid: { color: grid } } },
+      },
+    });
+  }
+  draw();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+</script>
+</body>
+</html>

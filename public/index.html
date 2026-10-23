@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scrawl: a scratchpad for AI agents</title>
+  <meta name="description" content="Your agent writes one HTML file, runs one command, and you get a shareable link. Works even with small models.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta property="og:site_name" content="Scrawl">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{BASE_URL}}/">
+  <meta property="og:title" content="Scrawl: a scratchpad for AI agents">
+  <meta property="og:description" content="Your agent writes one HTML file, runs one command, and you get a shareable link. Works even with small models.">
+  <meta property="og:image" content="{{BASE_URL}}/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/home.css">
+</head>
+<body>
+<div class="page">
+  <nav class="nav">
+    <span class="nav-logo"><span class="nav-mark" aria-hidden="true"></span>Scrawl</span>
+    <a class="nav-link" href="/guide.md">guide.md</a>
+  </nav>
+
+  <p class="ref-banner" id="ref" hidden>You just opened a page an AI agent made with Scrawl. <a href="#setup-title">Get your own agent making them</a>: it takes one message.</p>
+
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Free · No account · Works with small models</p>
+      <h1 class="hero-title">Scrawl</h1>
+      <p class="hero-tagline">A scratchpad for AI agents.</p>
+      <p class="hero-lede">
+        Ask your agent for a dashboard, a comparison or a trip plan. It writes one page, publishes it
+        with one request, and sends you a link that looks good on any phone.
+      </p>
+    </div>
+    <div class="phone" aria-hidden="true">
+      <div class="phone-screen"><iframe src="/examples/dashboard" title="An example page made by an agent" loading="lazy" tabindex="-1" scrolling="no"></iframe></div>
+    </div>
+  </header>
+
+  <section class="setup-card" aria-labelledby="setup-title">
+    <h2 id="setup-title" class="setup-title">Set up your agent</h2>
+    <p class="setup-text">
+      Paste this into Claude Code, Copilot CLI, OpenCode, omp, pi, or any agent that can fetch URLs.
+    </p>
+    <div class="prompt">
+      <code class="prompt-text">Fetch and follow the instructions at <span class="o"></span>/setup.md to set me up for Scrawl.</code>
+      <button type="button" class="copy-btn" id="copy">Copy</button>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="see-title">
+    <h2 id="see-title" class="section-title">See what an agent builds</h2>
+    <p class="section-lede">Each page below came from one sentence. Open them on your phone, tap around, switch to dark mode.</p>
+    <div class="examples">
+      <a class="example" href="/examples/dashboard">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/dashboard" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Dashboard</span>
+        <span class="example-prompt">&ldquo;Summarize last quarter&rsquo;s support tickets: volume, response time, satisfaction.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/compare">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/compare" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Comparison</span>
+        <span class="example-prompt">&ldquo;Compare these three phones for me: price, battery, camera.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/chart">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/chart" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Chart</span>
+        <span class="example-prompt">&ldquo;Chart our monthly signups for the year.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/ranking">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/ranking" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Ranking</span>
+        <span class="example-prompt">&ldquo;Show which programming languages developers use, ranked.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/itinerary">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/itinerary" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Itinerary</span>
+        <span class="example-prompt">&ldquo;Plan two days in Lisbon that I can follow on my phone.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/quiz">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/quiz" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Quiz</span>
+        <span class="example-prompt">&ldquo;Make a four-question quiz about the solar system.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/checklist">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/checklist" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Checklist</span>
+        <span class="example-prompt">&ldquo;Make a packing checklist for a weekend ski trip.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/faq">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/faq" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">FAQ</span>
+        <span class="example-prompt">&ldquo;Explain the six most common HTTP status codes, one tap each.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/calculator">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/calculator" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Calculator</span>
+        <span class="example-prompt">&ldquo;Make me a loan payment calculator.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/table">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/table" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Table</span>
+        <span class="example-prompt">&ldquo;List Europe&rsquo;s 20 largest cities so I can search and sort them.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/diagram">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/diagram" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Diagram</span>
+        <span class="example-prompt">&ldquo;Draw how a pull request gets from branch to production.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+      <a class="example" href="/examples/map">
+        <span class="example-shot" aria-hidden="true"><iframe src="/examples/map" title="" tabindex="-1" loading="lazy" scrolling="no"></iframe></span>
+        <span class="example-kind">Map</span>
+        <span class="example-prompt">&ldquo;Pin the five best coffee spots in central Lisbon.&rdquo;</span>
+        <span class="example-open">Open the page</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="how-title">
+    <h2 id="how-title" class="section-title">How it works</h2>
+    <ol class="steps">
+      <li class="step"><span class="step-num">1</span><p>You ask for a chart, calculator, mockup, comparison or report.</p></li>
+      <li class="step"><span class="step-num">2</span><p>The agent picks a recipe, fills it in and publishes with one request.</p></li>
+      <li class="step"><span class="step-num">3</span><p>You get a link. Ask for changes and they update the same link.</p></li>
+    </ol>
+    <div class="code">
+      <div class="code-label">request</div>
+      <pre class="code-pre"><code>curl -sS -X POST --data-binary @pad.html \
+  -H 'content-type: text/html' \
+  <span class="o"></span>/api/publish</code></pre>
+      <div class="code-label">reply</div>
+      <pre class="code-pre code-reply"><code>{"id":"k3x9a2mn","url":"https://k3x9a2mn.scrawls.dev/","edit_key":"...","warnings":[]}</code></pre>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="small-title">
+    <h2 id="small-title" class="section-title">Built so small models succeed</h2>
+    <div class="features">
+      <article class="feature">
+        <h3 class="feature-title">Good-looking by default</h3>
+        <p>One line loads Tailwind, daisyUI and a calm Scrawl theme. Every page works in light and dark mode.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature-title">Interactive without code</h3>
+        <p>Calculators, filters, tabs and quizzes come from Alpine.js attributes, so the agent writes no JavaScript.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature-title">Remembers for the reader</h3>
+        <p>Ticks and typed values stay on the reader&rsquo;s device between visits. Nothing goes to a server.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature-title">Fourteen recipes</h3>
+        <p>Dashboard, comparison, chart, table, calculator, ranking, quiz, checklist, itinerary, diagram, map, FAQ, article, starter.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature-title">Instant feedback</h3>
+        <p>The publish reply lists what to fix, from missing titles to colors that break dark mode.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature-title">Works with fetch only</h3>
+        <p>No shell, no install, no account. Any agent that can make an HTTP request can publish.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="know-title">
+    <h2 id="know-title" class="section-title">Good to know</h2>
+    <dl class="facts">
+      <div class="fact"><dt>Unlisted</dt><dd>Only people with the link can find a pad. Never put secrets in one.</dd></div>
+      <div class="fact"><dt>One file</dt><dd>HTML, CSS and JS inline. Libraries load from a short CDN allowlist.</dd></div>
+      <div class="fact"><dt>Sandboxed</dt><dd>Each pad has its own address. Ticks and inputs are saved on the reader's device only. Forms cannot submit.</dd></div>
+      <div class="fact"><dt>Limits</dt><dd>1 MB per pad, 20 new pads per hour per IP.</dd></div>
+      <div class="fact"><dt>Short-lived</dt><dd>A pad is deleted 30 days after its last update, unless the agent asks to keep it longer, up to a year.</dd></div>
+      <div class="fact"><dt>Yours to edit</dt><dd>Each pad gets an edit key so the agent can update or delete it.</dd></div>
+    </dl>
+  </section>
+
+  <section class="section" aria-labelledby="install-title">
+    <h2 id="install-title" class="section-title">Install by hand</h2>
+    <div class="code">
+      <pre class="code-pre"><code>mkdir -p ~/.agents/skills/scrawl
+curl -fsS <span class="o"></span>/skill/SKILL.md -o ~/.agents/skills/scrawl/SKILL.md</code></pre>
+    </div>
+    <p class="note">Agents can also read <a href="/guide.md"><span class="o"></span>/guide.md</a> directly.</p>
+  </section>
+
+  <footer class="footer"><span>Scrawl is <a href="https://github.com/areguig/scrawl-oss">open source</a> (MIT)</span><span class="footer-links"><a href="/guide.md">guide.md</a><a href="/setup.md">setup.md</a><a href="/report">report abuse</a></span></footer>
+</div>
+<script>
+  const origin = location.origin;
+  document.querySelectorAll(".o").forEach((el) => (el.textContent = origin));
+  // Scale each live preview to the width of its card.
+  function fitShots() {
+    document.querySelectorAll(".example-shot").forEach((shot) => {
+      const scale = shot.clientWidth / 640, frame = shot.firstElementChild;
+      frame.style.transform = `scale(${scale})`;
+      frame.style.height = shot.clientHeight / scale + "px";
+    });
+  }
+  fitShots();
+  new ResizeObserver(fitShots).observe(document.body);
+
+  // The hero phone cycles through a few examples (wide screens only, and not for reduced motion).
+  const phone = document.querySelector(".phone iframe");
+  if (phone && getComputedStyle(phone).display !== "none" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const reel = ["dashboard", "compare", "map", "checklist", "chart", "itinerary"];
+    let n = 0;
+    setInterval(() => {
+      n = (n + 1) % reel.length;
+      phone.style.opacity = 0;
+      setTimeout(() => { phone.onload = () => (phone.style.opacity = 1); phone.src = "/examples/" + reel[n]; }, 300);
+    }, 7000);
+  }
+
+  if (new URLSearchParams(location.search).get("ref") === "pad") document.getElementById("ref").hidden = false;
+
+  const btn = document.getElementById("copy");
+  btn.addEventListener("click", () => {
+    const text = `Fetch and follow the instructions at ${origin}/setup.md to set me up for Scrawl.`;
+    const done = (label) => { btn.textContent = label; setTimeout(() => (btn.textContent = "Copy"), 1600); };
+    navigator.clipboard.writeText(text).then(
+      () => done("Copied"),
+      () => { getSelection().selectAllChildren(document.querySelector(".prompt-text")); done("Press Ctrl+C"); },
+    );
+  });
+</script>
+</body>
+</html>

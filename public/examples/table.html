@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Istanbul and Moscow are Europe's largest cities</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">Europe's 20 largest cities · city proper, 2026</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Istanbul and Moscow are Europe's largest cities</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">Istanbul leads with about 16 million people. Search by city or country, or tap a column to sort.</p>
+  </header>
+
+  <section class="card bg-base-100"
+    x-data='{
+      rows: [
+        { name: "Istanbul", country: "Turkey", pop: 15.8, area: 5461 },
+        { name: "Moscow", country: "Russia", pop: 13.2, area: 2511 },
+        { name: "London", country: "United Kingdom", pop: 9.0, area: 1572 },
+        { name: "Saint Petersburg", country: "Russia", pop: 5.6, area: 1439 },
+        { name: "Berlin", country: "Germany", pop: 3.7, area: 892 },
+        { name: "Madrid", country: "Spain", pop: 3.4, area: 604 },
+        { name: "Kyiv", country: "Ukraine", pop: 3.0, area: 839 },
+        { name: "Rome", country: "Italy", pop: 2.8, area: 1285 },
+        { name: "Paris", country: "France", pop: 2.1, area: 105 },
+        { name: "Bucharest", country: "Romania", pop: 2.0, area: 228 },
+        { name: "Minsk", country: "Belarus", pop: 2.0, area: 348 },
+        { name: "Vienna", country: "Austria", pop: 2.0, area: 415 },
+        { name: "Hamburg", country: "Germany", pop: 1.9, area: 755 },
+        { name: "Warsaw", country: "Poland", pop: 1.9, area: 517 },
+        { name: "Budapest", country: "Hungary", pop: 1.7, area: 525 },
+        { name: "Barcelona", country: "Spain", pop: 1.6, area: 101 },
+        { name: "Munich", country: "Germany", pop: 1.5, area: 311 },
+        { name: "Kharkiv", country: "Ukraine", pop: 1.4, area: 350 },
+        { name: "Milan", country: "Italy", pop: 1.4, area: 182 },
+        { name: "Prague", country: "Czechia", pop: 1.4, area: 496 }
+      ],
+      q: "", key: "pop", asc: false,
+      sort(k) { this.asc = this.key === k ? !this.asc : (k === "name" || k === "country"); this.key = k },
+      get shown() {
+        const t = this.q.toLowerCase();
+        return this.rows
+          .filter(r => Object.values(r).join(" ").toLowerCase().includes(t))
+          .sort((a, b) => (a[this.key] > b[this.key] ? 1 : a[this.key] < b[this.key] ? -1 : 0) * (this.asc ? 1 : -1))
+      }
+    }'>
+    <div class="card-body">
+      <label class="input input-bordered flex items-center gap-2">
+        <i data-lucide="search" class="w-4 h-4 opacity-60"></i>
+        <input type="search" class="grow" placeholder="Search city or country" x-model="q">
+      </label>
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="cursor-pointer select-none" @click="sort('name')">City <span x-show="key === 'name'" x-text="asc ? '↑' : '↓'"></span></th>
+              <th class="cursor-pointer select-none hidden sm:table-cell" @click="sort('country')">Country <span x-show="key === 'country'" x-text="asc ? '↑' : '↓'"></span></th>
+              <th class="cursor-pointer select-none text-right" @click="sort('pop')">Population <span x-show="key === 'pop'" x-text="asc ? '↑' : '↓'"></span></th>
+              <th class="cursor-pointer select-none text-right" @click="sort('area')">Area <span x-show="key === 'area'" x-text="asc ? '↑' : '↓'"></span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in shown" :key="r.name">
+              <tr class="hover">
+                <td class="font-medium"><span x-text="r.name"></span><span class="block text-xs font-normal opacity-60 sm:hidden" x-text="r.country"></span></td>
+                <td class="hidden sm:table-cell"><span class="badge badge-ghost" x-text="r.country"></span></td>
+                <td class="text-right" x-text="r.pop.toFixed(1) + ' M'"></td>
+                <td class="text-right whitespace-nowrap" x-text="r.area.toLocaleString('en-US') + ' km²'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-sm opacity-60" x-text="shown.length + ' of ' + rows.length + ' cities'"></p>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: approximate figures for city proper, rounded, compiled for this page, October 2026.</footer>
+</main>
+</body>
+</html>

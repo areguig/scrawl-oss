@@ -1,0 +1,202 @@
+import { parse, parseExpressionAt } from "acorn";
+
+const ID_ALPHABET = "23456789abcdefghijkmnpqrstuvwxyz";
+
+function randomString(length: number, alphabet: string): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+export const newId = () => randomString(8, ID_ALPHABET);
+export const newEditKey = () => randomString(32, ID_ALPHABET);
+
+export async function hashKey(key: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function extractTitle(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return (match?.[1] ?? "").replace(/\s+/g, " ").trim().slice(0, 120) || "Untitled";
+}
+
+// Sandboxed pages have an opaque origin, so localStorage throws; fall back to memory.
+const STORAGE_SHIM = `<script>(function(){try{localStorage.getItem("x")}catch(e){["localStorage","sessionStorage"].forEach(function(n){var m=new Map();Object.defineProperty(window,n,{value:{getItem:function(k){return m.has(k)?m.get(k):null},setItem:function(k,v){m.set(k,String(v))},removeItem:function(k){m.delete(k)},clear:function(){m.clear()},key:function(i){return Array.from(m.keys())[i]??null},get length(){return m.size}}})})}})()</script>`;
+
+// Zero-specificity defaults so a pad is never broken on a phone, while its own CSS always wins.
+const BASE_CSS = `<style>:where(*,*::before,*::after){box-sizing:border-box}:where(html){-webkit-text-size-adjust:100%}:where(body){overflow-wrap:break-word}:where(img,video){max-width:100%;height:auto}:where(svg,canvas,iframe){max-width:100%}:where(pre){overflow-x:auto}</style>`;
+const VIEWPORT = `<meta name="viewport" content="width=device-width, initial-scale=1">`;
+
+const hasViewport = (html: string) => /<meta[^>]+name=["']?viewport/i.test(html);
+
+// Insert after <head>, else wrap in a new <head> after <html>, else after the doctype, else prefix.
+function injectIntoHead(html: string, snippet: string): string {
+  const head = html.match(/<head[^>]*>/i);
+  if (head) return html.replace(head[0], head[0] + snippet);
+  const root = html.match(/<html[^>]*>/i);
+  if (root) return html.replace(root[0], `${root[0]}<head>${snippet}</head>`);
+  const doctype = html.match(/<!doctype[^>]*>/i);
+  return doctype ? html.replace(doctype[0], doctype[0] + snippet) : snippet + html;
+}
+
+const escapeAttr = (text: string) => text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// A tab icon and a link preview card, unless the pad brings its own.
+function brandTags(html: string, origin: string): string {
+  const icon = /<link[^>]+rel=["'][^"']*icon/i.test(html) ? "" : `<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="apple-touch-icon" href="/apple-touch-icon.png">`;
+  const preview = /property=["']og:/i.test(html)
+    ? ""
+    : `<meta property="og:site_name" content="Scrawl"><meta property="og:type" content="website"><meta property="og:title" content="${escapeAttr(extractTitle(html))}"><meta property="og:image" content="${origin}/og.png"><meta name="twitter:card" content="summary_large_image">`;
+  return icon + preview;
+}
+
+// A quiet link back home at the end of the page, in the flow so it never covers the pad; all:initial shields it from pad CSS,
+// and padding instead of margin so it cannot leak past the body background.
+const FONT = "font:500 13px/1.2 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif";
+const madeWith = (home: string, padId?: string) =>
+  `<div style="all:initial;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;color:inherit;padding:40px 16px 24px">` +
+  `<a href="${home}/?ref=pad" target="_blank" rel="noopener" style="all:initial;box-sizing:border-box;display:flex;max-width:100%;align-items:center;gap:6px;padding:6px 12px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);color:inherit;opacity:.6;${FONT};cursor:pointer;text-decoration:none;white-space:nowrap"><svg viewBox="0 0 64 64" width="16" height="16" aria-hidden="true" style="all:initial;width:16px;height:16px;flex:none"><path d="M0 18A18 18 0 0 1 18 0A46 46 0 0 1 64 46A18 18 0 0 1 46 64A46 46 0 0 1 0 18Z" fill="#e2531f"/><path d="M17 40C25 25 33 51 47 24" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/></svg><span style="all:unset">Made with Scrawl · make your own</span></a>` +
+  (padId ? `<a href="${home}/report?pad=${padId}" target="_blank" rel="noopener" style="all:initial;color:inherit;opacity:.45;${FONT};cursor:pointer;text-decoration:underline;text-underline-offset:3px">Report</a>` : "") +
+  `</div>`;
+
+function appendToBody(html: string, snippet: string): string {
+  const end = html.search(/<\/body>(?![\s\S]*<\/body>)/i);
+  return end >= 0 ? html.slice(0, end) + snippet + html.slice(end) : html + snippet;
+}
+
+type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string };
+
+// An isolated pad has its own origin, so real localStorage works and needs no shim.
+export function preparePad(html: string, { origin, home = origin, isolated = false, padId }: PadContext): string {
+  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, origin) + BASE_CSS + (isolated ? "" : STORAGE_SHIM));
+  return appendToBody(head, madeWith(home, padId));
+}
+
+export type Issue = { code: string; message: string };
+
+export function lintPad(html: string, cdnAllowlist: string): Issue[] {
+  const issues: Issue[] = [];
+  const add = (code: string, message: string) => issues.push({ code, message });
+  const styleBlocks = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join("\n");
+  const styleAttrs = [...html.matchAll(/\bstyle=["']([^"']*)["']/gi)].map((m) => m[1]).join("\n");
+  const ownCss = styleBlocks + "\n" + styleAttrs;
+
+  if (/\bEDIT\b/.test(html)) add("edit-left", "Leftover EDIT placeholder text: replace it with real content or delete that part.");
+  if (!/<title[^>]*>\s*\S/i.test(html)) add("no-title", "No <title>: add one, it names the pad.");
+  if (!/<h1[\s>]/i.test(html)) add("no-h1", "No <h1>: add one headline that states the takeaway.");
+  if (!hasViewport(html)) add("no-viewport", "No viewport meta tag: Scrawl added one, but add it yourself so the page is mobile friendly.");
+  const hero = html.match(/<header[^>]*class=["'][^"']*\bhero\b[^"']*["'][^>]*>([\s\S]*?)<\/header>/i);
+  if (hero && [...hero[1].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].some((m) => m[1].replace(/<[^>]+>/g, "").trim().length > 260)) {
+    add("long-hero", "The hero text is long (over about 40 words): keep it to one or two short sentences and move the detail into a callout or the page body.");
+  }
+  if (/<img\b(?![^>]*\balt=)[^>]*>/i.test(html)) add("img-alt", 'Image without alt text: add alt="..." describing it, or alt="" if it is decoration.');
+
+  const allowed = new Set(cdnAllowlist.split(/\s+/).filter(Boolean));
+  const blocked = new Set<string>();
+  for (const [, url] of html.matchAll(/<(?:script|link)\b[^>]*?(?:src|href)=["'](https?:\/\/[^"']+)["']/gi)) {
+    const host = new URL(url).host;
+    if (!allowed.has(host)) blocked.add(host);
+  }
+  if (blocked.size) add("cdn-blocked", `Blocked by the CSP, will not load: ${[...blocked].join(", ")}. Allowed hosts: ${[...allowed].join(", ")}.`);
+  if (/<(?:script|link|img)\b[^>]*?(?:src|href)=["'](?!https?:|data:|#|mailto:|\/(?:scrawl\.js|favicon\.svg|apple-touch-icon\.png|og\.png)["'])[^"']+["']/i.test(html.replace(/<a\b[^>]*>/gi, ""))) {
+    add("relative-file", "Relative file reference (src/href to a local file) will not load: pads are a single file, inline it.");
+  }
+  const fakeImages = /<img\b[^>]*\bsrc=["']https?:\/\/(?:[\w-]+\.)*(?:placeholder\.com|placehold\.co|placehold\.it|picsum\.photos|example\.com|source\.unsplash\.com|dummyimage\.com)\//i;
+  if (fakeImages.test(html)) add("placeholder-image", "Placeholder or made-up image URL: use a real image URL you found, or upload your own file (see Images in the guide), or remove the image.");
+  if (/tile\.openstreetmap\.org/i.test(html)) add("osm-tiles", "tile.openstreetmap.org blocks map tiles on pads: copy the OpenFreeMap map from the map recipe.");
+  if (/<form\b[^>]*\baction=/i.test(html)) add("form-action", "Forms cannot submit to a server from a pad: handle submit with JavaScript.");
+  if ([...ownCss.matchAll(/(?<![-\w])width:\s*(\d{3,4})px/gi)].some(([, n]) => Number(n) > 480)) {
+    add("fixed-width", "Fixed width over 480px will overflow phones: use max-width or percentages.");
+  }
+  const classes = [...html.matchAll(/\bclass=["']([^"']*)["']/gi)].map((m) => m[1]).join(" ");
+  const paletteClass = /(?:^|\s)(?:bg|text|border|from|via|to|ring|fill|stroke)-(?:\[#|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)\b)/;
+  if (((/#[0-9a-f]{3,8}\b|rgba?\(/i.test(ownCss) && !/prefers-color-scheme/i.test(html)) || (paletteClass.test(classes) && !/\bdark:/.test(classes)))) {
+    add("fixed-colors", "Fixed colors will not follow dark mode: use theme classes (bg-base-100, text-primary, text-success, opacity-70) instead of hex codes or Tailwind colors like text-blue-500.");
+  }
+  if ([...ownCss.matchAll(/font-size:\s*(\d*\.?\d+)(px|rem|em)/gi)].some(([, n, unit]) => (unit === "px" ? Number(n) < 12 : Number(n) < 0.75))) {
+    add("tiny-text", "Text under 12px is hard to read on a phone: use 14px (0.875rem) or larger.");
+  }
+  return issues;
+}
+
+// allow-same-origin only on a pad's own subdomain: that origin holds nothing but this pad.
+const ALPINE_ATTR = /^(?:x-(?!data$|cloak$|ignore$)|@|:)/;
+// Attributes whose value is a name, a selector or modifiers, not JavaScript.
+const ALPINE_NOT_CODE = /^x-(?:ref|cloak|ignore|teleport|transition|mask)\b/;
+const ALPINE_STATEMENTS = /^(?:@|x-on:|x-init$|x-effect$)/;
+
+const decodeEntities = (v: string) =>
+  v.replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
+// The JavaScript in one Alpine attribute, ready for the parser, or undefined when it holds no code.
+function alpineCode(name: string, value: string): { code: string; statements: boolean } | undefined {
+  if (!ALPINE_ATTR.test(name) && name !== "x-data") return undefined;
+  if (ALPINE_NOT_CODE.test(name) || !value.trim()) return undefined;
+  if (name === "x-for") return { code: `(${value.split(/\s+(?:in|of)\s+/).pop()})`, statements: false };
+  return ALPINE_STATEMENTS.test(name) ? { code: value, statements: true } : { code: `(${value})`, statements: false };
+}
+
+// Alpine only reads data inside the x-data element, so a directive outside every x-data silently renders nothing;
+// and a directive that is not valid JavaScript (often a quoting mistake) breaks with only a console error.
+export async function alpineIssues(html: string): Promise<Issue[]> {
+  if (!/\bx-data\b/.test(html)) return [];
+  let depth = 0;
+  let orphan: string | undefined;
+  const broken = new Set<string>();
+  await new HTMLRewriter()
+    .on("*", {
+      element(el) {
+        const attrs = [...(el.attributes as unknown as Iterable<[string, string]>)];
+        for (const [name, raw] of attrs) {
+          const js = alpineCode(name, decodeEntities(raw));
+          if (!js || broken.size >= 3) continue;
+          try {
+            if (js.statements) parse(js.code, { ecmaVersion: "latest", allowReturnOutsideFunction: true });
+            else parseExpressionAt(js.code, 0, { ecmaVersion: "latest" });
+          } catch (err) {
+            broken.add(`${name}="${raw.slice(0, 50)}" (${(err as Error).message.replace(/ \(\d+:\d+\)$/, "")})`);
+          }
+        }
+        if (el.hasAttribute("x-data")) {
+          // A void element has no end tag and onEndTag throws; it cannot wrap anything anyway.
+          try {
+            el.onEndTag(() => void depth--);
+            depth++;
+          } catch {}
+          return;
+        }
+        if (depth === 0 && !orphan) orphan = attrs.map(([name]) => name).find((name) => ALPINE_ATTR.test(name));
+      },
+    })
+    .transform(new Response(html))
+    .text();
+  const issues: Issue[] = [];
+  if (orphan) issues.push({ code: "alpine-scope", message: `Alpine attribute ${orphan} is outside every x-data element, so it shows nothing: put x-data on one element that wraps everything using its data, such as <main>.` });
+  if (broken.size) issues.push({ code: "alpine-syntax", message: `Alpine code that is not valid JavaScript, so that part shows nothing: ${[...broken].join("; ")}. Check the quotes: in an attribute written with double quotes use single quotes inside, and never write \\".` });
+  return issues;
+}
+
+export function padHeaders(cdnAllowlist: string, isolated = false): Record<string, string> {
+  const cdns = cdnAllowlist.split(/\s+/).filter(Boolean).map((h) => `https://${h}`).join(" ");
+  const csp = [
+    `sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals${isolated ? " allow-same-origin" : ""}`,
+    "default-src 'none'",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cdns}`,
+    `style-src 'self' 'unsafe-inline' ${cdns}`,
+    `font-src data: ${cdns}`,
+    "img-src data: blob: https:",
+    "media-src data: blob: https:",
+    "worker-src blob:",
+    "connect-src https:",
+    "form-action 'none'",
+    "base-uri 'none'",
+  ].join("; ");
+  return {
+    "content-type": "text/html; charset=utf-8",
+    "content-security-policy": csp,
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow",
+    "referrer-policy": "no-referrer",
+    "cache-control": "no-store",
+  };
+}

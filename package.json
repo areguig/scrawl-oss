@@ -1,0 +1,25 @@
+{
+  "name": "scrawl",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "pad:delete": "node scripts/pad-delete.mjs",
+    "start": "bun src/selfhost/main.ts",
+    "test:selfhost": "bun test src/selfhost"
+  },
+  "dependencies": {
+    "acorn": "^8.19.0",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.6",
+    "@cloudflare/workers-types": "^5.20261022.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.151.3"
+  }
+}

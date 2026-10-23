@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A pull request reaches production in five gated steps</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">Git workflow · branch to production</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Nothing reaches production without review and green tests</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">Follow the arrows from the first push to the live release. Two checks can send the change back to the author.</p>
+  </header>
+
+  <section class="card bg-base-100">
+    <div class="card-body">
+      <h2 class="card-title">From branch to production</h2>
+      <div class="overflow-x-auto">
+        <pre class="mermaid flex justify-center">
+flowchart TD
+  A[Push feature branch] --> B[Open pull request]
+  B --> C{CI tests pass?}
+  C -->|No| F[Author fixes code]
+  F --> B
+  C -->|Yes| D{Review approved?}
+  D -->|Changes requested| F
+  D -->|Approved| E[Merge to main]
+  E --> G[Deploy to staging]
+  G --> H[Deploy to production]
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: a typical team workflow, simplified for this page, October 2026.</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });
+</script>
+</body>
+</html>

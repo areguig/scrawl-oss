@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Five coffee spots within a short walk in central Lisbon</title>
+  <script src="/scrawl.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">Central Lisbon · coffee</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Five great coffee spots, all within a 25-minute walk</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">From a 1905 institution to a bright specialty roaster. Tap a place to find it on the map.</p>
+  </header>
+
+  <div x-data='{
+      places: [
+        { name: "A Brasileira", note: "Historic Chiado cafe from 1905. Order a bica at the counter.", lat: 38.7107, lng: -9.1419 },
+        { name: "Dear Breakfast", note: "All-day brunch and excellent flat whites in Baixa.", lat: 38.7097, lng: -9.1380 },
+        { name: "Fabrica Coffee Roasters", note: "Specialty beans roasted in town, calm and bright.", lat: 38.7146, lng: -9.1490 },
+        { name: "Hello, Kristof", note: "Small Scandinavian-style spot, great filter coffee.", lat: 38.7078, lng: -9.1451 },
+        { name: "Copenhagen Coffee Lab", note: "Pastries and espresso on a quiet Baixa street.", lat: 38.7109, lng: -9.1393 }
+      ],
+      hasMap: true, show: null,
+      init() {
+        // Map and markers stay outside Alpine data: MapLibre objects must not be wrapped in a proxy.
+        // Without WebGL the map cannot start: hide it, the list still links every place to a maps app.
+        const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+        const color = "oklch(" + getComputedStyle(document.documentElement).getPropertyValue("--p") + ")";
+        let map;
+        try { map = new maplibregl.Map({ container: this.$refs.map, style: "https://tiles.openfreemap.org/styles/" + (dark ? "dark" : "liberty"), attributionControl: { compact: true }, cooperativeGestures: true }); } catch { this.hasMap = false; return; }
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
+        const bounds = new maplibregl.LngLatBounds();
+        const markers = this.places.map(p => {
+          bounds.extend([p.lng, p.lat]);
+          return new maplibregl.Marker({ color }).setLngLat([p.lng, p.lat]).setPopup(new maplibregl.Popup({ offset: 30, anchor: "bottom" }).setHTML("<b>" + p.name + "</b><br>" + p.note)).addTo(map);
+        });
+        map.fitBounds(bounds, { padding: 50, maxZoom: 15, duration: 0 });
+        this.show = i => {
+          markers.forEach(m => m.getPopup().isOpen() && m.togglePopup());
+          map.flyTo({ center: [this.places[i].lng, this.places[i].lat], zoom: 15 });
+          markers[i].togglePopup();
+          this.$refs.map.scrollIntoView({ behavior: "smooth", block: "center" });
+        };
+      }
+    }' class="space-y-6">
+
+    <section class="card bg-base-100 overflow-hidden" x-show="hasMap">
+      <div x-ref="map" class="relative z-0 h-80 md:h-[28rem] w-full"></div>
+    </section>
+
+    <section class="card bg-base-100">
+      <div class="card-body">
+        <h2 class="card-title">Places</h2>
+        <ul class="divide-y divide-base-300">
+          <template x-for="(p, i) in places" :key="i">
+            <li class="flex items-start gap-2 py-3">
+              <button class="flex flex-1 min-w-0 items-start gap-3 text-left" @click="hasMap && show(i)">
+                <span class="badge badge-primary size-6 p-0 mt-0.5" x-text="i + 1"></span>
+                <span class="flex-1 min-w-0"><span class="block font-medium" x-text="p.name"></span><span class="block text-sm opacity-70" x-text="p.note"></span></span>
+              </button>
+              <a class="btn btn-ghost btn-sm" :href="'https://www.google.com/maps/search/?api=1&query=' + p.lat + ',' + p.lng" target="_blank" rel="noopener"><i data-lucide="map-pin" class="w-4 h-4"></i>Maps</a>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <footer class="text-sm opacity-60">Source: sample picks invented for this page, October 2026. Map: OpenFreeMap, OpenStreetMap contributors.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDIT: trip title</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-3xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">EDIT: destination · dates</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">EDIT: trip title</h1>
+    <p class="text-lg opacity-70 mt-3">EDIT: one sentence on the pace and the area covered.</p>
+  </header>
+
+  <!-- EDIT: tip that matters most, or delete this alert. -->
+  <div role="alert" class="alert alert-info"><i data-lucide="info"></i><span>EDIT: the one tip that matters most.</span></div>
+
+  <!-- EDIT: one entry per day in days. Each stop: time, title, note. Use double quotes, no apostrophes. -->
+  <section class="space-y-4"
+    x-data='{
+      day: 0,
+      days: [
+        { name: "Day 1", area: "EDIT: area", stops: [
+          { time: "Morning", title: "EDIT: place", note: "EDIT: what to do and why." },
+          { time: "Lunch", title: "EDIT: place", note: "EDIT: what to eat." },
+          { time: "Afternoon", title: "EDIT: place", note: "EDIT: what to do." },
+          { time: "Evening", title: "EDIT: place", note: "EDIT: dinner or show." }
+        ] },
+        { name: "Day 2", area: "EDIT: area", stops: [
+          { time: "Morning", title: "EDIT: place", note: "EDIT: what to do." },
+          { time: "Afternoon", title: "EDIT: place", note: "EDIT: what to do." }
+        ] }
+      ]
+    }'>
+    <div role="tablist" class="tabs tabs-boxed bg-base-100 border border-base-300 flex-nowrap overflow-x-auto">
+      <template x-for="(d, i) in days" :key="i">
+        <button role="tab" class="tab flex-1 whitespace-nowrap" :class="day === i && 'tab-active'" @click="day = i" x-text="d.name"></button>
+      </template>
+    </div>
+
+    <div class="card bg-base-100">
+      <div class="card-body">
+        <h2 class="card-title" x-text="days[day].name + ': ' + days[day].area"></h2>
+        <ul class="timeline timeline-vertical timeline-compact timeline-snap-icon">
+          <template x-for="(s, i) in days[day].stops" :key="day + '-' + i">
+            <li>
+              <div class="timeline-middle text-primary"><i data-lucide="circle-dot" class="w-5 h-5"></i></div>
+              <div class="timeline-end mb-6 mt-0.5">
+                <p class="text-sm font-semibold text-primary" x-text="s.time"></p>
+                <p class="font-semibold" x-text="s.title"></p>
+                <p class="opacity-70" x-text="s.note"></p>
+                <a class="link link-primary text-sm" target="_blank" rel="noopener" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.title)">Map</a>
+              </div>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: EDIT hours and prices change, check before you go.</footer>
+</main>
+</body>
+</html>

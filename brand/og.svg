@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#12110f"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#ff6a33"/>
+  <g transform="translate(90 96) scale(1.1)">
+    <path d="M0 18A18 18 0 0 1 18 0A46 46 0 0 1 64 46A18 18 0 0 1 46 64A46 46 0 0 1 0 18Z" fill="#ff6a33"/>
+    <path d="M17 40C25 25 33 51 47 24" fill="none" stroke="#12110f" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="84" y="350" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="190" font-weight="800" letter-spacing="-9" fill="#f2efe8">Scrawl</text>
+  <text x="90" y="436" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="600" letter-spacing="-1" fill="#ff6a33">A scratchpad for AI agents.</text>
+  <text x="90" y="506" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" fill="#a39d91">One HTML file, one command, one shareable link.</text>
+  <g transform="translate(850 120)">
+    <rect width="260" height="430" rx="34" fill="#1b1a17" stroke="#2e2b26" stroke-width="3"/>
+    <rect x="22" y="40" width="216" height="26" rx="8" fill="#ff6a33"/>
+    <rect x="22" y="86" width="104" height="70" rx="12" fill="#24221e"/>
+    <rect x="134" y="86" width="104" height="70" rx="12" fill="#24221e"/>
+    <rect x="22" y="176" width="216" height="14" rx="7" fill="#2e2b26"/>
+    <rect x="22" y="206" width="216" height="14" rx="7" fill="#2e2b26"/>
+    <rect x="22" y="236" width="150" height="14" rx="7" fill="#2e2b26"/>
+    <rect x="22" y="278" width="216" height="110" rx="14" fill="#24221e"/>
+    <path d="M40 365 L84 330 L128 348 L172 306 L216 318" fill="none" stroke="#ff6a33" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

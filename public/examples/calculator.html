@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A $20,000 loan costs $373 a month</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">Loan payment calculator</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Know your monthly loan payment before you sign</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">Change the amount, rate or term and the result updates as you type. The default is a $20,000 loan at 4.5% for 5 years.</p>
+  </header>
+
+  <div x-data="{ amount: 20000, rate: 4.5, years: 5 }" class="grid gap-6 md:grid-cols-2">
+
+    <section class="card bg-base-100">
+      <div class="card-body gap-4">
+        <h2 class="card-title">Your loan</h2>
+        <label class="form-control">
+          <span class="label-text mb-1">Amount (USD)</span>
+          <input type="number" inputmode="decimal" class="input input-bordered" x-model.number="amount">
+        </label>
+        <label class="form-control">
+          <span class="label-text mb-1">Yearly rate (%)</span>
+          <input type="number" inputmode="decimal" step="0.1" class="input input-bordered" x-model.number="rate">
+        </label>
+        <label class="form-control">
+          <span class="label-text mb-1">Term (years)</span>
+          <input type="number" inputmode="numeric" class="input input-bordered" x-model.number="years">
+        </label>
+      </div>
+    </section>
+
+    <div class="stats stats-vertical w-full bg-base-100 border border-base-300">
+      <div class="stat">
+        <div class="stat-title">Monthly payment</div>
+        <div class="stat-value text-primary" x-text="'$' + (rate ? amount * (rate/1200) / (1 - Math.pow(1 + rate/1200, -years*12)) : amount / (years*12)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></div>
+        <div class="stat-desc">Paid every month for the whole term</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Total cost</div>
+        <div class="stat-value" x-text="'$' + ((rate ? amount * (rate/1200) / (1 - Math.pow(1 + rate/1200, -years*12)) : amount / (years*12)) * years * 12).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></div>
+        <div class="stat-desc">Principal plus interest</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Interest paid</div>
+        <div class="stat-value" x-text="'$' + ((rate ? amount * (rate/1200) / (1 - Math.pow(1 + rate/1200, -years*12)) : amount / (years*12)) * years * 12 - amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></div>
+        <div class="stat-desc">What the loan costs you on top of the amount</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-sm opacity-60">Source: standard amortization formula, fixed rate, monthly payments, no fees, October 2026.</footer>
+</main>
+</body>
+</html>

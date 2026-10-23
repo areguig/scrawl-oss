@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support overview: replies got faster, billing is the queue to fix</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">Support overview · Q3 2026</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">Replies got 22% faster, but billing is falling behind</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">4,812 tickets from July to September. Start with the billing row below.</p>
+  </header>
+
+  <div class="stats stats-vertical sm:stats-horizontal w-full bg-base-100 border border-base-300">
+    <div class="stat">
+      <div class="stat-title">First response</div>
+      <div class="stat-value text-primary">1h 42m</div>
+      <div class="stat-desc text-success">↓ 22% vs Q2 (2h 11m)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Tickets</div>
+      <div class="stat-value">4,812</div>
+      <div class="stat-desc">↑ 6% vs Q2</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Satisfaction</div>
+      <div class="stat-value">92%</div>
+      <div class="stat-desc text-success">↑ 3 pts vs Q2</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Open backlog</div>
+      <div class="stat-value">137</div>
+      <div class="stat-desc text-error">↑ 41 since June</div>
+    </div>
+  </div>
+
+  <div role="alert" class="alert alert-warning"><i data-lucide="triangle-alert"></i><span><b>Billing is the weak spot.</b> Those tickets take 27 hours to close, about five times longer than any other queue.</span></div>
+
+  <section class="card bg-base-100">
+    <div class="card-body">
+      <h2 class="card-title">Tickets by queue</h2>
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead><tr><th>Queue</th><th>Status</th><th class="text-right">Tickets</th><th class="text-right">Avg. close</th></tr></thead>
+          <tbody>
+            <tr><td class="font-medium">Accounts</td><td><span class="badge badge-success badge-outline">On track</span></td><td class="text-right">1,420</td><td class="text-right">4h</td></tr>
+            <tr><td class="font-medium">Shipping</td><td><span class="badge badge-success badge-outline">On track</span></td><td class="text-right">1,105</td><td class="text-right">6h</td></tr>
+            <tr><td class="font-medium">Product</td><td><span class="badge badge-warning badge-outline">Slipping</span></td><td class="text-right">980</td><td class="text-right">9h</td></tr>
+            <tr><td class="font-medium">Billing</td><td><span class="badge badge-error badge-outline">Late</span></td><td class="text-right">760</td><td class="text-right">27h</td></tr>
+            <tr><td class="font-medium">Other</td><td><span class="badge badge-success badge-outline">On track</span></td><td class="text-right">547</td><td class="text-right">5h</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: sample data invented for this page, October 2026.</footer>
+</main>
+</body>
+</html>

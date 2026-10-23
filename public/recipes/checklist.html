@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDIT: checklist title</title>
+  <script src="/scrawl.js"></script>
+</head>
+<body>
+<main class="max-w-3xl mx-auto px-4 py-8 md:py-12 space-y-6">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">EDIT: topic</p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">EDIT: checklist title</h1>
+    <p class="text-lg opacity-70 mt-3">EDIT: what the list is for. Ticks are saved in this browser.</p>
+  </header>
+
+  <!-- EDIT: change only the text of the items (keep done: false). Use double quotes, no apostrophes. Keep the name 'checklist' unique to this page. -->
+  <section class="card bg-base-100"
+    x-data='{
+      items: $persist([
+        { text: "EDIT: first item", done: false },
+        { text: "EDIT: second item", done: false },
+        { text: "EDIT: third item", done: false },
+        { text: "EDIT: fourth item", done: false },
+        { text: "EDIT: fifth item", done: false }
+      ]).as("checklist"),
+      get done() { return this.items.filter(i => i.done).length }
+    }'>
+    <div class="card-body gap-4">
+      <div class="flex items-center justify-between gap-3">
+        <p class="font-semibold" x-text="done + ' of ' + items.length + ' done'"></p>
+        <button class="btn btn-ghost btn-sm" @click="items.forEach(i => i.done = false)">Reset</button>
+      </div>
+      <progress class="progress progress-primary w-full" value="0" :value="done" :max="items.length"></progress>
+      <ul class="divide-y divide-base-300">
+        <template x-for="item in items" :key="item.text">
+          <li>
+            <label class="flex items-center gap-3 py-3 cursor-pointer">
+              <input type="checkbox" class="checkbox checkbox-primary" x-model="item.done">
+              <span class="flex-1" :class="item.done && 'line-through opacity-50'" x-text="item.text"></span>
+            </label>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: EDIT note or source.</footer>
+</main>
+</body>
+</html>

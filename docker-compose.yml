@@ -1,0 +1,15 @@
+# Self-hosted Scrawl. Put a reverse proxy with HTTPS in front (Caddy, Traefik, Coolify).
+# Set PAD_DOMAIN only when *.your-domain points here with a wildcard certificate; otherwise pads live under /p/<id>.
+services:
+  scrawl:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      PAD_DOMAIN: ${PAD_DOMAIN:-}
+    volumes:
+      - scrawl-data:/data
+
+volumes:
+  scrawl-data:
