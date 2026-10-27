@@ -88,9 +88,11 @@ After publishing, tell the user the link and one or two sentences with the main 
 
 ## Images
 - Images from the web: use the real https URL you found, with `alt` text. Never invent an image URL or use placeholder sites: the reader sees a broken image.
-- Your own image files (a photo, a screenshot, a chart you rendered): publish the page first, then upload each file:
-  `curl -sS --data-binary @photo.jpg -H 'x-edit-key: <edit_key>' {{BASE_URL}}/api/pads/<id>/images`
-  The reply is `{"url": "..."}`. Put that url in `<img src="..." alt="...">` and update the pad. JPEG, PNG, WebP or GIF, 2 MB each, 20 per pad. They are deleted with the pad.
+- Your own image files (a photo, a screenshot, a chart you rendered): send them with the page and refer to each by its file name, `<img src="photo.jpg" alt="...">`. Scrawl stores them and points the page at them. With a shell, send a form:
+  `curl -sS -F html=@pad.html -F image=@photo.jpg {{BASE_URL}}/api/publish`
+  With JSON, add `"images": {"photo.jpg": "<the file as base64>"}`. The reply lists each stored file in `images`. The same works on update.
+- To add one image to a pad that exists: `curl -sS --data-binary @photo.jpg -H 'x-edit-key: <edit_key>' {{BASE_URL}}/api/pads/<id>/images`. The reply is `{"url": "..."}` for your `<img src>`.
+- JPEG, PNG, WebP or GIF, 2 MB each, 20 per pad. Sending the same file again does not use up a place. They are deleted with the pad.
 - Photos fill a card well with `<figure><img src="..." alt="..." class="h-48 w-full object-cover"></figure>` as the card's first child.
 
 ## 3. Update the same link

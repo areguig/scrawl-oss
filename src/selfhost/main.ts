@@ -41,6 +41,6 @@ if (import.meta.main) {
   const env = createEnv(process.env.DATA_DIR ?? join(ROOT, "data"));
   const port = Number(process.env.PORT ?? 8787);
   setInterval(() => deleteExpired(env as any).catch((err) => console.error("cleanup failed", err)), HOUR_MS);
-  Bun.serve({ port, fetch: createHandler(env), maxRequestBodySize: Math.max(Number(env.MAX_PAD_BYTES), Number(env.IMAGE_MAX_BYTES)) * 2 });
+  Bun.serve({ port, fetch: createHandler(env), maxRequestBodySize: Number(env.MAX_PAD_BYTES) + Number(env.IMAGE_MAX_BYTES) * Number(env.IMAGE_MAX_PER_PAD) * 2 });
   console.log(`Scrawl listening on http://localhost:${port}`);
 }

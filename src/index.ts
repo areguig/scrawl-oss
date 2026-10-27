@@ -58,29 +58,51 @@ const lintReply = (issues: Issue[]) => ({ warnings: messages(issues, "fix"), adv
 // Every API error is JSON with a stable code, so an agent can tell it from a proxy or firewall page.
 const fail = (status: number, code: string, error: string) => Response.json({ error, code }, { status });
 
-type PadBody = { html: string; title?: string; ttlDays?: number };
+type PadBody = { html: string; title?: string; ttlDays?: number; images: Map<string, Uint8Array<ArrayBuffer>> };
+type PadFields = { html: unknown; title?: unknown; expires_in_days?: unknown; images: Map<string, Uint8Array<ArrayBuffer>> };
 
-// expires_in_days comes from the JSON body, or from the query string when the body is raw HTML.
-async function readHtml(req: Request, maxBytes: number, maxTtlDays: number): Promise<PadBody | Response> {
-  const declared = Number(req.headers.get("content-length") ?? 0);
-  if (declared > maxBytes) return fail(413, "pad_too_large", "pad too large");
-  const raw = await req.text();
-  if (new TextEncoder().encode(raw).length > maxBytes) return fail(413, "pad_too_large", "pad too large");
-  let html = raw;
-  let title: string | undefined;
-  let ttl: unknown = new URL(req.url).searchParams.get("expires_in_days") ?? undefined;
-  if (req.headers.get("content-type")?.includes("application/json")) {
-    try {
-      const body = JSON.parse(raw) as { html?: unknown; title?: unknown; expires_in_days?: unknown };
-      if (typeof body.html !== "string") throw new Error();
-      html = body.html;
-      if (typeof body.title === "string") title = body.title.slice(0, 120);
-      ttl = body.expires_in_days ?? ttl;
-    } catch {
-      return fail(400, "bad_json", 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number}');
+const BAD_JSON = 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number, "images"?: {"<file name>": "<base64>"}}';
+const fromBase64 = (text: string) => Uint8Array.from(atob(text), (ch) => ch.charCodeAt(0));
+
+// A pad comes as raw HTML, as JSON, or as a multipart form whose file parts are the images the page refers to by file name.
+async function readFields(req: Request): Promise<PadFields | Response> {
+  const type = req.headers.get("content-type") ?? "";
+  if (type.includes("multipart/form-data")) {
+    const form = await req.formData().catch(() => undefined);
+    if (!form) return fail(400, "bad_form", "send a multipart form with an html field");
+    const images = new Map<string, Uint8Array<ArrayBuffer>>();
+    let html: unknown = form.get("html");
+    for (const [name, value] of form) {
+      if (typeof value === "string") continue;
+      if (name === "html") html = await value.text();
+      else images.set(value.name || name, new Uint8Array(await value.arrayBuffer()));
     }
+    return { html, title: form.get("title") ?? undefined, expires_in_days: form.get("expires_in_days") ?? undefined, images };
   }
+  const raw = await req.text();
+  if (!type.includes("application/json")) return { html: raw, images: new Map() };
+  try {
+    const body = JSON.parse(raw) as Omit<PadFields, "images"> & { images?: Record<string, string> };
+    return { ...body, images: new Map(Object.entries(body.images ?? {}).map(([name, data]) => [name, fromBase64(data)])) };
+  } catch {
+    return fail(400, "bad_json", BAD_JSON);
+  }
+}
+
+// expires_in_days comes from the body, or from the query string when the body is raw HTML.
+async function readPad(req: Request, env: Bindings): Promise<PadBody | Response> {
+  const maxBytes = Number(env.MAX_PAD_BYTES);
+  const maxRequest = maxBytes + Number(env.IMAGE_MAX_BYTES) * Number(env.IMAGE_MAX_PER_PAD) * 2;
+  if (Number(req.headers.get("content-length") ?? 0) > maxRequest) return fail(413, "pad_too_large", "pad too large");
+  const fields = await readFields(req);
+  if (fields instanceof Response) return fields;
+  const { html, images } = fields;
+  if (typeof html !== "string") return fail(400, "bad_json", BAD_JSON);
+  if (new TextEncoder().encode(html).length > maxBytes) return fail(413, "pad_too_large", "pad too large");
+  const title = typeof fields.title === "string" ? fields.title.slice(0, 120) : undefined;
+  const ttl = fields.expires_in_days ?? new URL(req.url).searchParams.get("expires_in_days") ?? undefined;
   const ttlDays = ttl === undefined ? undefined : Number(ttl);
+  const maxTtlDays = Number(env.PAD_MAX_TTL_DAYS);
   if (ttlDays !== undefined && !(Number.isInteger(ttlDays) && ttlDays >= 1 && ttlDays <= maxTtlDays)) {
     return fail(400, "bad_expiry", `expires_in_days must be a whole number from 1 to ${maxTtlDays}`);
   }
@@ -89,7 +111,7 @@ async function readHtml(req: Request, maxBytes: number, maxTtlDays: number): Pro
   if (/<input\b[^>]*\btype\s*=\s*["']?password/i.test(html)) {
     return fail(422, "password_field", "Pads cannot ask for passwords. Remove the password field.");
   }
-  return { html, title, ttlDays };
+  return { html, title, ttlDays, images };
 }
 
 const PAD_ASSETS = new Set(["/scrawl.js", "/favicon.svg", "/apple-touch-icon.png", "/og.png"]);
@@ -180,6 +202,39 @@ app.get("/examples/:name", async (c) => {
   return new Response(preparePad(await asset.text(), { origin: new URL(c.req.url).origin }), { headers: padHeaders(c.env.CDN_ALLOWLIST) });
 });
 
+// Known raster formats only; the same file sent again for the same pad is stored once.
+async function storeImage(c: Context<{ Bindings: Bindings }>, id: string, bytes: Uint8Array<ArrayBuffer>): Promise<string | Response> {
+  const maxBytes = Number(c.env.IMAGE_MAX_BYTES);
+  if (bytes.length > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
+  const type = imageTypeOf(bytes);
+  if (!type) return fail(415, "image_type", "send the raw bytes of a JPEG, PNG, WebP or GIF file");
+  const sha256 = await hashKey(bytes);
+  const known = await c.env.DB.prepare("SELECT name FROM images WHERE pad_id = ? AND sha256 = ?").bind(id, sha256).first<{ name: string }>();
+  if (known) return padImageUrl(c, id, known.name);
+  const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ?").bind(id).first<{ n: number }>();
+  if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return fail(422, "image_limit", `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} images`);
+  const name = `${newId()}.${type.ext}`;
+  await c.env.IMAGES.put(`${id}/${name}`, bytes, { httpMetadata: { contentType: type.contentType } });
+  await c.env.DB.prepare("INSERT INTO images (pad_id, name, bytes, created_at, sha256) VALUES (?, ?, ?, ?, ?)").bind(id, name, bytes.length, Date.now(), sha256).run();
+  return padImageUrl(c, id, name);
+}
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Stores the images sent with a pad and points the page's references to each file name (src="photo.jpg", url(photo.jpg)) at it.
+async function attachImages(c: Context<{ Bindings: Bindings }>, id: string, body: PadBody): Promise<{ html: string; images: Record<string, string> } | Response> {
+  let html = body.html;
+  const images: Record<string, string> = {};
+  for (const [name, bytes] of body.images) {
+    const url = await storeImage(c, id, bytes);
+    if (url instanceof Response) return url;
+    images[name] = url;
+    const file = escapeRegExp(name);
+    html = html.replace(new RegExp(`(=\\s*["']?)(?:\\./)?${file}(?=["'\\s>])`, "g"), `$1${url}`).replace(new RegExp(`url\\((["']?)(?:\\./)?${file}\\1\\)`, "g"), `url($1${url}$1)`);
+  }
+  return { html, images };
+}
+
 app.post("/api/publish", async (c) => {
   const ipHash = await hashKey(clientIp(c));
   const since = Date.now() - Number(c.env.PUBLISH_WINDOW_SECONDS) * 1000;
@@ -189,10 +244,13 @@ app.post("/api/publish", async (c) => {
   if ((recent?.n ?? 0) >= Number(c.env.PUBLISH_LIMIT)) {
     return fail(429, "publish_limit", "publish limit reached, try again later");
   }
-  const body = await readHtml(c.req.raw, Number(c.env.MAX_PAD_BYTES), Number(c.env.PAD_MAX_TTL_DAYS));
+  const body = await readPad(c.req.raw, c.env);
   if (body instanceof Response) return body;
 
   const id = newId();
+  const attached = await attachImages(c, id, body);
+  if (attached instanceof Response) return attached;
+  const { html, images } = attached;
   const editKey = newEditKey();
   const now = Date.now();
   const ttlDays = body.ttlDays ?? Number(c.env.PAD_TTL_DAYS);
@@ -200,10 +258,10 @@ app.post("/api/publish", async (c) => {
   await c.env.DB.prepare(
     "INSERT INTO pads (id, title, html, edit_key_hash, ip_hash, created_at, updated_at, ttl_days, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
   )
-    .bind(id, body.title ?? extractTitle(body.html), body.html, await hashKey(editKey), ipHash, now, now, ttlDays, expiresAt)
+    .bind(id, body.title ?? extractTitle(html), html, await hashKey(editKey), ipHash, now, now, ttlDays, expiresAt)
     .run();
   const origin = publicOrigin(c);
-  const issues = await lint(c, body.html);
+  const issues = await lint(c, html);
   await logStats(c, "published", issues);
   return c.json(
     {
@@ -212,6 +270,7 @@ app.post("/api/publish", async (c) => {
       edit_key: editKey,
       expires_at: new Date(expiresAt).toISOString(),
       ...lintReply(issues),
+      ...(body.images.size ? { images } : {}),
       update: `PUT ${origin}/api/pads/${id} with header x-edit-key: ${editKey} and the new HTML as the body (same link). Each update keeps the pad another ${ttlDays} days.`,
       delete: `DELETE ${origin}/api/pads/${id} with header x-edit-key: ${editKey}`,
     },
@@ -232,16 +291,19 @@ app.put("/api/pads/:id", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
-  const body = await readHtml(c.req.raw, Number(c.env.MAX_PAD_BYTES), Number(c.env.PAD_MAX_TTL_DAYS));
+  const body = await readPad(c.req.raw, c.env);
   if (body instanceof Response) return body;
+  const attached = await attachImages(c, id, body);
+  if (attached instanceof Response) return attached;
+  const { html, images } = attached;
   // An update restarts the pad's lifetime, with the length it asked for before unless it asks again.
   const now = Date.now();
   const row = await c.env.DB.prepare("UPDATE pads SET html = ?, title = ?, updated_at = ?, ttl_days = COALESCE(?, ttl_days), expires_at = ? + COALESCE(?, ttl_days) * ? WHERE id = ? RETURNING expires_at")
-    .bind(body.html, body.title ?? extractTitle(body.html), now, body.ttlDays ?? null, now, body.ttlDays ?? null, DAY_MS, id)
+    .bind(html, body.title ?? extractTitle(html), now, body.ttlDays ?? null, now, body.ttlDays ?? null, DAY_MS, id)
     .first<{ expires_at: number }>();
-  const issues = await lint(c, body.html);
+  const issues = await lint(c, html);
   await logStats(c, "updated", issues);
-  return c.json({ id, url: padUrl(c, id), expires_at: new Date(row!.expires_at).toISOString(), ...lintReply(issues) });
+  return c.json({ id, url: padUrl(c, id), expires_at: new Date(row!.expires_at).toISOString(), ...lintReply(issues), ...(body.images.size ? { images } : {}) });
 });
 
 app.delete("/api/pads/:id", async (c) => {
@@ -261,15 +323,9 @@ app.post("/api/pads/:id/images", async (c) => {
   const maxBytes = Number(c.env.IMAGE_MAX_BYTES);
   if (Number(c.req.header("content-length") ?? 0) > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
   const bytes = new Uint8Array(await c.req.arrayBuffer());
-  if (bytes.length > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
-  const type = imageTypeOf(bytes);
-  if (!type) return fail(415, "image_type", "send the raw bytes of a JPEG, PNG, WebP or GIF file");
-  const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ?").bind(id).first<{ n: number }>();
-  if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return fail(422, "image_limit", `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} images`);
-  const name = `${newId()}.${type.ext}`;
-  await c.env.IMAGES.put(`${id}/${name}`, bytes, { httpMetadata: { contentType: type.contentType } });
-  await c.env.DB.prepare("INSERT INTO images (pad_id, name, bytes, created_at) VALUES (?, ?, ?, ?)").bind(id, name, bytes.length, Date.now()).run();
-  return c.json({ url: padImageUrl(c, id, name), bytes: bytes.length }, 201);
+  const url = await storeImage(c, id, bytes);
+  if (url instanceof Response) return url;
+  return c.json({ url, bytes: bytes.length }, 201);
 });
 
 const REPORT_REASONS = new Set(["phishing", "scam", "malware", "illegal", "other"]);

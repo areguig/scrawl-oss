@@ -10,8 +10,8 @@ function randomString(length: number, alphabet: string): string {
 export const newId = () => randomString(8, ID_ALPHABET);
 export const newEditKey = () => randomString(32, ID_ALPHABET);
 
-export async function hashKey(key: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+export async function hashKey(key: string | BufferSource): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", typeof key === "string" ? new TextEncoder().encode(key) : key);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -101,7 +101,7 @@ export function lintPad(html: string, cdnAllowlist: string): Issue[] {
   }
   if (blocked.size) add("cdn-blocked", `Scripts blocked by the CSP, will not load: ${[...blocked].join(", ")}. Scripts may come from: ${[...allowed].join(", ")}.`);
   if (/<(?:script|link|img)\b[^>]*?(?:src|href)=["'](?!https?:|data:|#|mailto:|\/(?:scrawl\.js|favicon\.svg|apple-touch-icon\.png|og\.png)["'])[^"']+["']/i.test(html.replace(/<a\b[^>]*>/gi, ""))) {
-    add("relative-file", "Relative file reference (src/href to a local file) will not load: pads are a single file, inline it.");
+    add("relative-file", "Relative file reference (src/href to a local file) will not load: pads are a single file. Inline it, or send image files with the pad (see Images in the guide).");
   }
   const fakeImages = /<img\b[^>]*\bsrc=["']https?:\/\/(?:[\w-]+\.)*(?:placeholder\.com|placehold\.co|placehold\.it|picsum\.photos|example\.com|source\.unsplash\.com|dummyimage\.com)\//i;
   if (fakeImages.test(html)) add("placeholder-image", "Placeholder or made-up image URL: use a real image URL you found, or upload your own file (see Images in the guide), or remove the image.");

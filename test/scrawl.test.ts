@@ -219,8 +219,48 @@ describe("images", () => {
 
   it("caps the number of images per pad", async () => {
     const { id, edit_key } = await fresh();
-    for (let i = 0; i < 20; i++) expect((await upload(id, edit_key, PNG)).status).toBe(201);
-    expect((await upload(id, edit_key, PNG)).status).toBe(422);
+    const nth = (i: number) => new Uint8Array([...PNG, i]);
+    for (let i = 0; i < 20; i++) expect((await upload(id, edit_key, nth(i))).status).toBe(201);
+    expect((await upload(id, edit_key, nth(20))).status).toBe(422);
+  });
+
+  it("stores the same file once per pad", async () => {
+    const { id, edit_key } = await fresh();
+    const first = await (await upload(id, edit_key, PNG)).json<{ url: string }>();
+    const again = await (await upload(id, edit_key, PNG)).json<{ url: string }>();
+    expect(again.url).toBe(first.url);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ?").bind(id).first<{ n: number }>())!.n).toBe(1);
+  });
+
+  it("takes images with the pad in a multipart form and points the page at them", async () => {
+    const form = new FormData();
+    form.append("html", new File(['<title>t</title><img src="photo.png" alt="p"><div style="background:url(\'photo.png\')"></div>'], "pad.html"));
+    form.append("image", new File([PNG], "photo.png"));
+    form.append("expires_in_days", "7");
+    const res = await publish(form as unknown as string, {});
+    expect(res.status).toBe(201);
+    const { id, images, warnings, edit_key } = await res.json<{ id: string; images: Record<string, string>; warnings: string[]; edit_key: string }>();
+    expect(images["photo.png"]).toMatch(new RegExp(`/p/${id}/i/[2-9a-z]{8}\\.png$`));
+    expect(warnings).toEqual([]);
+    const page = await (await call(`/p/${id}`)).text();
+    expect(page).toContain(`src="${images["photo.png"]}"`);
+    expect(page).toContain(`url('${images["photo.png"]}')`);
+    expect((await call(new URL(images["photo.png"]).pathname)).status).toBe(200);
+
+    const update = new FormData();
+    update.append("html", '<title>t</title><img src="photo.png" alt="p">');
+    update.append("image", new File([PNG], "photo.png"));
+    const put = await call(`/api/pads/${id}`, { method: "PUT", body: update, headers: { "x-edit-key": edit_key } });
+    expect((await put.json<{ images: Record<string, string> }>()).images["photo.png"]).toBe(images["photo.png"]);
+  });
+
+  it("takes base64 images in a JSON body and refuses files that are not images", async () => {
+    const json = (images: Record<string, string>) => publish(JSON.stringify({ html: '<title>t</title><img src="a.png" alt="a">', images }), { "content-type": "application/json" });
+    const ok = await json({ "a.png": btoa(String.fromCharCode(...PNG)) });
+    expect(ok.status).toBe(201);
+    expect(Object.keys((await ok.json<{ images: Record<string, string> }>()).images)).toEqual(["a.png"]);
+    expect((await (await json({ "a.png": btoa("<svg/>") })).json<{ code: string }>()).code).toBe("image_type");
+    expect((await (await json({ "a.png": "not base64!" })).json<{ code: string }>()).code).toBe("bad_json");
   });
 
   it("deletes images with their pad, and the daily cleanup catches pads deleted by hand", async () => {

@@ -75,6 +75,17 @@ describe("self-hosted Scrawl", () => {
     expect(await env.IMAGES.get(`${id}/${url.split("/").pop()}`)).toBeNull();
   });
 
+  it("takes images with the pad in a multipart form", async () => {
+    const { call } = instance();
+    const form = new FormData();
+    form.append("html", '<title>t</title><img src="photo.png" alt="p">');
+    form.append("image", new File([PNG], "photo.png"));
+    const res = await call("http://pads.test/api/publish", { method: "POST", body: form, headers: { "x-forwarded-for": "10.2.0.1" } });
+    const { url, images } = (await res.json()) as { url: string; images: Record<string, string> };
+    expect(await (await call(url)).text()).toContain(`src="${images["photo.png"]}"`);
+    expect((await call(images["photo.png"])).status).toBe(200);
+  });
+
   it("hides reported pads and expires old ones", async () => {
     const { env, call, publish } = instance({ REPORT_HIDE_THRESHOLD: "2" });
     const { id, url } = (await (await publish("<title>t</title>")).json()) as { id: string; url: string };
