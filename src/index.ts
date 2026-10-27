@@ -1,8 +1,8 @@
 import { Hono, type Context } from "hono";
-import { checkPad } from "./check";
+import { capturePreview, checkPad } from "./check";
 import { handleMcp } from "./mcp";
 import { deleteImageObjects, IMAGE_NAME, imageHeaders, imageTypeOf } from "./images";
-import { alpineIssues, extractTitle, hashKey, lintPad, newEditKey, newId, padHeaders, preparePad, type Issue } from "./pad";
+import { alpineIssues, extractTitle, hashKey, lintPad, newEditKey, newId, padHeaders, preparePad, scrawlLogo, type Issue } from "./pad";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -118,6 +118,8 @@ async function readPad(req: Request, env: Bindings): Promise<PadBody | Response>
   return { html, title, ttlDays, images };
 }
 
+// The link preview picture is kept with the pad's images so it is deleted with them, under a name no upload can have.
+const PREVIEW = "og.jpg";
 const PAD_ASSETS = new Set(["/scrawl.js", "/favicon.svg", "/apple-touch-icon.png", "/og.png"]);
 const padIdOfHost = (host: string, padDomain: string) => {
   if (!padDomain) return undefined;
@@ -141,10 +143,10 @@ const padImageUrl = (c: Context<{ Bindings: Bindings }>, id: string, name: strin
   onPadDomain(c) ? `https://${id}.${c.env.PAD_DOMAIN}/i/${name}` : `${publicOrigin(c)}/p/${id}/i/${name}`;
 
 // A pad and its images are served only while it exists, has not expired and was not taken down.
-async function livePad(c: Context<{ Bindings: Bindings }>, id: string): Promise<{ html: string } | Response> {
-  const row = await c.env.DB.prepare("SELECT html, hidden_at, expires_at FROM pads WHERE id = ?")
+async function livePad(c: Context<{ Bindings: Bindings }>, id: string): Promise<{ html: string; updated_at: number } | Response> {
+  const row = await c.env.DB.prepare("SELECT html, updated_at, hidden_at, expires_at FROM pads WHERE id = ?")
     .bind(id)
-    .first<{ html: string; hidden_at: number | null; expires_at: number }>();
+    .first<{ html: string; updated_at: number; hidden_at: number | null; expires_at: number }>();
   if (!row) return c.text("Pad not found", 404);
   // The daily cleanup can lag a day behind, so an expired pad is never served.
   if (row.expires_at < Date.now()) return c.text("This page expired.", 410);
@@ -156,7 +158,9 @@ async function servePad(c: Context<{ Bindings: Bindings }>, id: string, isolated
   const row = await livePad(c, id);
   if (row instanceof Response) return row;
   const home = isolated ? `https://${c.env.PAD_DOMAIN}` : publicOrigin(c);
-  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id });
+  // Versioned by the update, so link previews cached by chat apps refresh when the pad changes.
+  const image = `${padImageUrl(c, id, PREVIEW)}?v=${row.updated_at}`;
+  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image });
   return new Response(html, { headers: padHeaders(c.env.CDN_ALLOWLIST, isolated) });
 }
 
@@ -167,6 +171,25 @@ async function serveImage(c: Context<{ Bindings: Bindings }>, id: string, name: 
   const object = await c.env.IMAGES.get(`${id}/${name}`);
   if (!object) return c.text("Not found", 404);
   return new Response(object.body, { headers: imageHeaders(object.httpMetadata?.contentType ?? "application/octet-stream") });
+}
+
+// The link preview picture: the top of the pad, taken when first asked for after each update.
+async function servePreview(c: Context<{ Bindings: Bindings }>, id: string) {
+  const pad = await livePad(c, id);
+  if (pad instanceof Response) return pad;
+  const key = `${id}/${PREVIEW}`;
+  const stored = await c.env.IMAGES.get(key);
+  if (stored?.customMetadata?.v === String(pad.updated_at)) return new Response(stored.body, { headers: imageHeaders("image/jpeg") });
+  const site = c.env.PAD_DOMAIN || new URL(c.req.url).host;
+  const shot = c.env.BROWSER && (await capturePreview(c.env.BROWSER, padUrl(c, id), scrawlLogo(28), site).catch((err) => void console.error(err)));
+  if (shot) {
+    await c.env.IMAGES.put(key, shot, { httpMetadata: { contentType: "image/jpeg" }, customMetadata: { v: String(pad.updated_at) } });
+    await c.env.DB.prepare("INSERT OR REPLACE INTO images (pad_id, name, bytes, created_at) VALUES (?, ?, ?, ?)").bind(id, PREVIEW, shot.length, Date.now()).run();
+    return new Response(shot, { headers: imageHeaders("image/jpeg") });
+  }
+  // No browser here, or none free: the last picture, else the Scrawl card, cached briefly so the next request tries again.
+  const body = stored?.body ?? (await fetchAsset(c, "/og.png")).body;
+  return new Response(body, { headers: { ...imageHeaders(stored ? "image/jpeg" : "image/png"), "cache-control": "public, max-age=300" } });
 }
 
 async function deletePadImages(env: Bindings, padIds: string[]) {
@@ -182,6 +205,7 @@ app.use("*", async (c, next) => {
   const id = padIdOfHost(new URL(c.req.url).host, c.env.PAD_DOMAIN);
   if (!id) return next();
   if (c.req.path === "/") return servePad(c, id, true);
+  if (c.req.path === `/i/${PREVIEW}`) return servePreview(c, id);
   if (c.req.path.startsWith("/i/")) return serveImage(c, id, c.req.path.slice(3));
   if (PAD_ASSETS.has(c.req.path)) return fetchAsset(c);
   return c.text("Not found", 404);
@@ -215,7 +239,7 @@ async function storeImage(c: Context<{ Bindings: Bindings }>, id: string, bytes:
   const sha256 = await hashKey(bytes);
   const known = await c.env.DB.prepare("SELECT name FROM images WHERE pad_id = ? AND sha256 = ?").bind(id, sha256).first<{ name: string }>();
   if (known) return padImageUrl(c, id, known.name);
-  const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ?").bind(id).first<{ n: number }>();
+  const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ? AND name != ?").bind(id, PREVIEW).first<{ n: number }>();
   if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return fail(422, "image_limit", `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} images`);
   const name = `${newId()}.${type.ext}`;
   await c.env.IMAGES.put(`${id}/${name}`, bytes, { httpMetadata: { contentType: type.contentType } });
@@ -382,6 +406,7 @@ app.all("/mcp", (c) =>
   }),
 );
 
+app.get(`/p/:id/i/${PREVIEW}`, (c) => servePreview(c, c.req.param("id")));
 app.get("/p/:id/i/:name", (c) => serveImage(c, c.req.param("id"), c.req.param("name")));
 
 app.get("/p/:id", async (c) => {

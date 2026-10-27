@@ -67,7 +67,7 @@ export class SqliteD1 {
   }
 }
 
-const IMAGE_KEY = /^[2-9a-z]{8}\/[2-9a-z]{8}\.(?:jpg|png|gif|webp)$/;
+const IMAGE_KEY = /^[2-9a-z]{8}\/(?:[2-9a-z]{8}|og)\.(?:jpg|png|gif|webp)$/;
 
 export class DiskBucket {
   constructor(private dir: string) {}

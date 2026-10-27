@@ -86,6 +86,16 @@ describe("self-hosted Scrawl", () => {
     expect((await call(images["photo.png"])).status).toBe(200);
   });
 
+  it("previews pads with the Scrawl card, since Bun has no browser to picture them", async () => {
+    const { call, publish } = instance();
+    const { url } = (await (await publish("<title>t</title>")).json()) as { url: string };
+    const image = (await (await call(url)).text()).match(/og:image" content="([^"]+)"/)![1];
+    const card = await call(image);
+    expect(card.headers.get("content-type")).toBe("image/png");
+    expect(card.headers.get("cache-control")).toBe("public, max-age=300");
+    expect((await card.arrayBuffer()).byteLength).toBeGreaterThan(1000);
+  });
+
   it("says a pad check is unavailable, since Bun has no browser", async () => {
     const { call, publish } = instance();
     const { id, edit_key } = (await (await publish("<title>t</title>")).json()) as { id: string; edit_key: string };

@@ -52,7 +52,7 @@ export function extractDescription(html: string): string {
 }
 
 // A tab icon and a link preview card; each tag the pad sets itself is left to the pad.
-function brandTags(html: string, origin: string): string {
+function brandTags(html: string, image: string): string {
   const icon = /<link[^>]+rel=["'][^"']*icon/i.test(html) ? "" : `<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="apple-touch-icon" href="/apple-touch-icon.png">`;
   const description = extractDescription(html);
   const tags: [string, string][] = [
@@ -60,7 +60,7 @@ function brandTags(html: string, origin: string): string {
     ["og:type", "website"],
     ["og:title", extractTitle(html)],
     ["og:description", description],
-    ["og:image", `${origin}/og.png`],
+    ["og:image", image],
     ["twitter:card", "summary_large_image"],
   ];
   const preview = tags
@@ -73,9 +73,11 @@ function brandTags(html: string, origin: string): string {
 // A quiet link back home at the end of the page, in the flow so it never covers the pad; all:initial shields it from pad CSS,
 // and padding instead of margin so it cannot leak past the body background.
 const FONT = "font:500 14px/1.2 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif";
+export const scrawlLogo = (px: number) =>
+  `<svg viewBox="0 0 64 64" width="${px}" height="${px}" aria-hidden="true" style="all:initial;width:${px}px;height:${px}px;flex:none"><path d="M0 18A18 18 0 0 1 18 0A46 46 0 0 1 64 46A18 18 0 0 1 46 64A46 46 0 0 1 0 18Z" fill="#e2531f"/><path d="M17 40C25 25 33 51 47 24" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/></svg>`;
 const madeWith = (home: string, padId?: string) =>
   `<div data-scrawl-footer style="all:initial;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;color:inherit;padding:40px 16px 24px">` +
-  `<a href="${home}/?ref=pad" target="_blank" rel="noopener" style="all:initial;box-sizing:border-box;display:flex;max-width:100%;align-items:center;gap:6px;padding:6px 12px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);color:inherit;opacity:.6;${FONT};cursor:pointer;text-decoration:none;white-space:nowrap"><svg viewBox="0 0 64 64" width="16" height="16" aria-hidden="true" style="all:initial;width:16px;height:16px;flex:none"><path d="M0 18A18 18 0 0 1 18 0A46 46 0 0 1 64 46A18 18 0 0 1 46 64A46 46 0 0 1 0 18Z" fill="#e2531f"/><path d="M17 40C25 25 33 51 47 24" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/></svg><span style="all:unset">Made with Scrawl · make your own</span></a>` +
+  `<a href="${home}/?ref=pad" target="_blank" rel="noopener" style="all:initial;box-sizing:border-box;display:flex;max-width:100%;align-items:center;gap:6px;padding:6px 12px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);color:inherit;opacity:.6;${FONT};cursor:pointer;text-decoration:none;white-space:nowrap">${scrawlLogo(16)}<span style="all:unset">Made with Scrawl · make your own</span></a>` +
   (padId ? `<a href="${home}/report?pad=${padId}" target="_blank" rel="noopener" style="all:initial;color:inherit;opacity:.45;${FONT};cursor:pointer;text-decoration:underline;text-underline-offset:3px">Report</a>` : "") +
   `</div>`;
 
@@ -84,11 +86,12 @@ function appendToBody(html: string, snippet: string): string {
   return end >= 0 ? html.slice(0, end) + snippet + html.slice(end) : html + snippet;
 }
 
-type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string };
+// image is the link preview picture, the Scrawl card by default.
+type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string };
 
 // An isolated pad has its own origin, so real localStorage works and needs no shim.
-export function preparePad(html: string, { origin, home = origin, isolated = false, padId }: PadContext): string {
-  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, origin) + BASE_CSS + (isolated ? "" : STORAGE_SHIM));
+export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png` }: PadContext): string {
+  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, image) + BASE_CSS + (isolated ? "" : STORAGE_SHIM));
   return appendToBody(head, madeWith(home, padId));
 }
 

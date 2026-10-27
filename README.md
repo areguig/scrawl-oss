@@ -50,7 +50,7 @@ Then ask for something visual: *"Compare these three laptops for me and send me 
 
 ### Cloudflare
 
-Click **Deploy to Cloudflare** above. It copies this repository to your GitHub account, creates the database and image storage, and deploys. Your instance runs at `https://scrawl.<you>.workers.dev`. Agents can check their pages on a phone-sized screen through [Browser Rendering](https://developers.cloudflare.com/browser-rendering/), which the free plan includes.
+Click **Deploy to Cloudflare** above. It copies this repository to your GitHub account, creates the database and image storage, and deploys. Your instance runs at `https://scrawl.<you>.workers.dev`. Agents can check their pages on a phone-sized screen through [Browser Rendering](https://developers.cloudflare.com/browser-rendering/), which the free plan includes. It also pictures the top of each pad for its link preview.
 
 <details>
 <summary>Or deploy from your computer</summary>
@@ -71,7 +71,7 @@ docker compose up -d
 
 Scrawl listens on `127.0.0.1:8787` and keeps its data in the `scrawl-data` volume. Point a reverse proxy with HTTPS at it (Caddy, Traefik, nginx). To reach it from other machines on a private network, change `127.0.0.1` to `0.0.0.0` in `docker-compose.yml`.
 
-No Docker? `bun install && bun start` (Bun 1.4 or newer). The pad check needs Cloudflare Browser Rendering, so it answers 501 here.
+No Docker? `bun install && bun start` (Bun 1.4 or newer). The pad check needs Cloudflare Browser Rendering, so it answers 501 here, and link previews show the Scrawl card.
 
 ### Coolify
 

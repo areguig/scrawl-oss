@@ -296,7 +296,7 @@ describe("pad brand tags", () => {
     const out = await serve('<html><head><title>My "pad" <3</title></head><body><h1>x</h1></body></html>');
     expect(out).toContain('rel="icon" type="image/svg+xml" href="/favicon.svg"');
     expect(out).toContain('property="og:title" content="My &quot;pad&quot; &lt;3"');
-    expect(out).toContain('property="og:image" content="https://scrawl.test/og.png"');
+    expect(out).toContain('property="og:site_name" content="Scrawl"');
   });
 
   it("leaves a pad's own icon and preview tags alone, and still names Scrawl", async () => {
@@ -305,6 +305,27 @@ describe("pad brand tags", () => {
     expect(out.match(/og:title/g)).toHaveLength(1);
     expect(out).toContain('property="og:site_name" content="Scrawl"');
     expect(out).toContain('property="og:image"');
+  });
+
+  it("previews each pad with its own picture, versioned by its last update", async () => {
+    const { id, edit_key } = await (await publish("<title>t</title>")).json<{ id: string; edit_key: string }>();
+    const { updated_at } = (await env.DB.prepare("SELECT updated_at FROM pads WHERE id = ?").bind(id).first<{ updated_at: number }>())!;
+    const page = await (await call(`/p/${id}`)).text();
+    expect(page).toContain(`property="og:image" content="https://scrawl.test/p/${id}/i/og.jpg?v=${updated_at}"`);
+
+    // A picture taken for this version is served as it is, and the pad's upload limit does not count it.
+    const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 1, 2]);
+    await env.IMAGES.put(`${id}/og.jpg`, JPEG, { customMetadata: { v: String(updated_at) } });
+    await env.DB.prepare("INSERT INTO images (pad_id, name, bytes, created_at) VALUES (?, 'og.jpg', 5, 0)").bind(id).run();
+    const img = await call(`/p/${id}/i/og.jpg?v=${updated_at}`);
+    expect(img.headers.get("content-type")).toBe("image/jpeg");
+    expect(new Uint8Array(await img.arrayBuffer())).toEqual(JPEG);
+    const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ? AND name != 'og.jpg'").bind(id).first<{ n: number }>())!;
+    expect(n).toBe(0);
+
+    await call(`/api/pads/${id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } });
+    expect(await env.IMAGES.get(`${id}/og.jpg`)).toBeNull();
+    expect((await call(`/p/${id}/i/og.jpg`)).status).toBe(404);
   });
 
   it("describes the pad with its meta description, else its first paragraph", async () => {

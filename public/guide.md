@@ -124,6 +124,7 @@ An error that is not JSON (an HTML page, often a 403) comes from a firewall betw
 - Lead with the answer, then the detail. Short paragraphs. The text under the title is one or two short sentences: put the longer reasoning in a card below.
 - One message per page. Lead with one big number or verdict, not four of equal weight.
 - At most one alert per page. Most text belongs in cards, not in alerts.
+- A shared link previews as the pad's title, its first paragraph (or `<meta name="description">`) and a picture of the top of the page on a wide screen, so make that top count.
 - End with a footer in the form `Source: <where>, <date>.` Mark estimates as approximate.
 - Use the theme as it is: theme colors only, no fixed widths, no custom fonts.
 - Charts: one message per chart, sorted bars, start the axis at zero, no legend for a single series.
