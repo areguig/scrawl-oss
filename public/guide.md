@@ -97,15 +97,19 @@ After publishing, tell the user the link and one or two sentences with the main 
 `PUT {{BASE_URL}}/api/pads/<id>` with header `x-edit-key: <edit_key>` and the new HTML as the body. Do not publish a new pad for each change.
 
 ## If publishing fails
-| Status | Meaning | What to do |
+Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
+
+| Status | Code | What to do |
 |---|---|---|
-| 400 | empty or malformed body | send the whole HTML, or valid JSON `{"html": "..."}` |
-| 403 | wrong or missing edit key | use the `edit_key` from the publish reply |
-| 404 | unknown pad id | check the id, or publish a new pad |
-| 413 | page over 1 MB, or image over 2 MB | cut content; upload a smaller image |
-| 415 | upload is not a JPEG, PNG, WebP or GIF | send the raw file bytes of one of those |
-| 422 | page has a password field, or the pad already has 20 images | remove the password field; reuse or drop images |
-| 429 | 20 new pads per hour reached | update an existing pad with PUT instead of publishing a new one |
+| 400 | `empty_pad`, `bad_json`, `bad_expiry` | send the whole HTML, or valid JSON `{"html": "..."}` |
+| 403 | `bad_edit_key` | use the `edit_key` from the publish reply |
+| 404 | `not_found` | check the id, or publish a new pad |
+| 413 | `pad_too_large`, `image_too_large` | page over 1 MB or image over 2 MB: cut content, upload a smaller image |
+| 415 | `image_type` | send the raw bytes of a JPEG, PNG, WebP or GIF |
+| 422 | `password_field`, `image_limit` | remove the password field; reuse or drop images |
+| 429 | `publish_limit` | 20 new pads per hour reached: update an existing pad with PUT |
+
+An error that is not JSON (an HTML page, often a 403) comes from a firewall between you and Scrawl, not from Scrawl. Retry once with another HTTP client or a `User-Agent` header (`curl` works), and tell the user if it still fails.
 
 ## Make it good
 - Title the page with the takeaway, not the topic: "Signups doubled since spring", not "Signups".

@@ -55,14 +55,17 @@ async function lint(c: Context<{ Bindings: Bindings }>, html: string): Promise<I
 const messages = (issues: Issue[], level: Issue["level"]) => issues.filter((i) => i.level === level).map((i) => i.message);
 const lintReply = (issues: Issue[]) => ({ warnings: messages(issues, "fix"), advice: messages(issues, "advice") });
 
+// Every API error is JSON with a stable code, so an agent can tell it from a proxy or firewall page.
+const fail = (status: number, code: string, error: string) => Response.json({ error, code }, { status });
+
 type PadBody = { html: string; title?: string; ttlDays?: number };
 
 // expires_in_days comes from the JSON body, or from the query string when the body is raw HTML.
 async function readHtml(req: Request, maxBytes: number, maxTtlDays: number): Promise<PadBody | Response> {
   const declared = Number(req.headers.get("content-length") ?? 0);
-  if (declared > maxBytes) return Response.json({ error: "pad too large" }, { status: 413 });
+  if (declared > maxBytes) return fail(413, "pad_too_large", "pad too large");
   const raw = await req.text();
-  if (new TextEncoder().encode(raw).length > maxBytes) return Response.json({ error: "pad too large" }, { status: 413 });
+  if (new TextEncoder().encode(raw).length > maxBytes) return fail(413, "pad_too_large", "pad too large");
   let html = raw;
   let title: string | undefined;
   let ttl: unknown = new URL(req.url).searchParams.get("expires_in_days") ?? undefined;
@@ -74,17 +77,17 @@ async function readHtml(req: Request, maxBytes: number, maxTtlDays: number): Pro
       if (typeof body.title === "string") title = body.title.slice(0, 120);
       ttl = body.expires_in_days ?? ttl;
     } catch {
-      return Response.json({ error: 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number}' }, { status: 400 });
+      return fail(400, "bad_json", 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number}');
     }
   }
   const ttlDays = ttl === undefined ? undefined : Number(ttl);
   if (ttlDays !== undefined && !(Number.isInteger(ttlDays) && ttlDays >= 1 && ttlDays <= maxTtlDays)) {
-    return Response.json({ error: `expires_in_days must be a whole number from 1 to ${maxTtlDays}` }, { status: 400 });
+    return fail(400, "bad_expiry", `expires_in_days must be a whole number from 1 to ${maxTtlDays}`);
   }
-  if (!html.trim()) return Response.json({ error: "empty pad" }, { status: 400 });
+  if (!html.trim()) return fail(400, "empty_pad", "empty pad");
   // Pads are public and anonymous: a password field is the shape of a phishing page.
   if (/<input\b[^>]*\btype\s*=\s*["']?password/i.test(html)) {
-    return Response.json({ error: "Pads cannot ask for passwords. Remove the password field." }, { status: 422 });
+    return fail(422, "password_field", "Pads cannot ask for passwords. Remove the password field.");
   }
   return { html, title, ttlDays };
 }
@@ -178,7 +181,7 @@ app.post("/api/publish", async (c) => {
     .bind(ipHash, since)
     .first<{ n: number }>();
   if ((recent?.n ?? 0) >= Number(c.env.PUBLISH_LIMIT)) {
-    return c.json({ error: "publish limit reached, try again later" }, 429);
+    return fail(429, "publish_limit", "publish limit reached, try again later");
   }
   const body = await readHtml(c.req.raw, Number(c.env.MAX_PAD_BYTES), Number(c.env.PAD_MAX_TTL_DAYS));
   if (body instanceof Response) return body;
@@ -217,10 +220,12 @@ async function authorised(c: { env: Bindings; req: { header(n: string): string |
   return key && (await hashKey(key)) === row.edit_key_hash ? true : (403 as const);
 }
 
+const authFailure = (status: 403 | 404) => (status === 404 ? fail(404, "not_found", "not found") : fail(403, "bad_edit_key", "bad edit key"));
+
 app.put("/api/pads/:id", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
-  if (auth !== true) return c.json({ error: auth === 404 ? "not found" : "bad edit key" }, auth);
+  if (auth !== true) return authFailure(auth);
   const body = await readHtml(c.req.raw, Number(c.env.MAX_PAD_BYTES), Number(c.env.PAD_MAX_TTL_DAYS));
   if (body instanceof Response) return body;
   // An update restarts the pad's lifetime, with the length it asked for before unless it asks again.
@@ -236,7 +241,7 @@ app.put("/api/pads/:id", async (c) => {
 app.delete("/api/pads/:id", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
-  if (auth !== true) return c.json({ error: auth === 404 ? "not found" : "bad edit key" }, auth);
+  if (auth !== true) return authFailure(auth);
   await c.env.DB.prepare("DELETE FROM pads WHERE id = ?").bind(id).run();
   await deletePadImages(c.env, [id]);
   return c.body(null, 204);
@@ -246,15 +251,15 @@ app.delete("/api/pads/:id", async (c) => {
 app.post("/api/pads/:id/images", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
-  if (auth !== true) return c.json({ error: auth === 404 ? "not found" : "bad edit key" }, auth);
+  if (auth !== true) return authFailure(auth);
   const maxBytes = Number(c.env.IMAGE_MAX_BYTES);
-  if (Number(c.req.header("content-length") ?? 0) > maxBytes) return c.json({ error: `image over ${maxBytes / 1_000_000} MB` }, 413);
+  if (Number(c.req.header("content-length") ?? 0) > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
   const bytes = new Uint8Array(await c.req.arrayBuffer());
-  if (bytes.length > maxBytes) return c.json({ error: `image over ${maxBytes / 1_000_000} MB` }, 413);
+  if (bytes.length > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
   const type = imageTypeOf(bytes);
-  if (!type) return c.json({ error: "send the raw bytes of a JPEG, PNG, WebP or GIF file" }, 415);
+  if (!type) return fail(415, "image_type", "send the raw bytes of a JPEG, PNG, WebP or GIF file");
   const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ?").bind(id).first<{ n: number }>();
-  if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return c.json({ error: `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} images` }, 422);
+  if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return fail(422, "image_limit", `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} images`);
   const name = `${newId()}.${type.ext}`;
   await c.env.IMAGES.put(`${id}/${name}`, bytes, { httpMetadata: { contentType: type.contentType } });
   await c.env.DB.prepare("INSERT INTO images (pad_id, name, bytes, created_at) VALUES (?, ?, ?, ?)").bind(id, name, bytes.length, Date.now()).run();
@@ -268,8 +273,8 @@ app.post("/api/report", async (c) => {
   const body = await c.req.json<{ pad?: unknown; reason?: unknown; details?: unknown }>().catch(() => ({}) as Record<string, unknown>);
   const pad = typeof body.pad === "string" ? body.pad : "";
   const reason = typeof body.reason === "string" ? body.reason : "";
-  if (!REPORT_REASONS.has(reason)) return c.json({ error: `reason must be one of: ${[...REPORT_REASONS].join(", ")}` }, 400);
-  if (!(await c.env.DB.prepare("SELECT 1 FROM pads WHERE id = ?").bind(pad).first())) return c.json({ error: "not found" }, 404);
+  if (!REPORT_REASONS.has(reason)) return fail(400, "bad_reason", `reason must be one of: ${[...REPORT_REASONS].join(", ")}`);
+  if (!(await c.env.DB.prepare("SELECT 1 FROM pads WHERE id = ?").bind(pad).first())) return fail(404, "not_found", "not found");
   const details = typeof body.details === "string" ? body.details.slice(0, 1000) : null;
   const ipHash = await hashKey(clientIp(c));
   await c.env.DB.prepare("INSERT OR IGNORE INTO reports (pad_id, reason, details, ip_hash, created_at) VALUES (?, ?, ?, ?, ?)")
@@ -290,6 +295,10 @@ app.get("/p/:id", async (c) => {
 });
 
 app.notFound((c) => c.env.ASSETS.fetch(c.req.raw));
+app.onError((err) => {
+  console.error(err);
+  return fail(500, "internal", "internal error, try again");
+});
 
 // Daily: delete expired pads, then the reports and images left without a pad (also those of pads deleted by hand).
 export async function deleteExpired(env: Bindings, now = Date.now()) {

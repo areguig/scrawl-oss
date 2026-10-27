@@ -51,6 +51,12 @@ describe("publish and serve", () => {
     expect(put.status).toBe(422);
   });
 
+  it("returns JSON errors with a stable code", async () => {
+    expect(await (await publish("   ")).json()).toEqual({ error: "empty pad", code: "empty_pad" });
+    const put = await call("/api/pads/nope", { method: "PUT", body: "<p>x</p>", headers: { "x-edit-key": "k" } });
+    expect(await put.json()).toEqual({ error: "not found", code: "not_found" });
+  });
+
   it("returns 404 for an unknown pad", async () => {
     expect((await call("/p/nope")).status).toBe(404);
   });
@@ -432,6 +438,7 @@ describe("update and delete", () => {
     const put = (key?: string) =>
       call(`/api/pads/${id}`, { method: "PUT", body: "<p>v2</p>", headers: key ? { "x-edit-key": key } : {} });
     expect((await put()).status).toBe(403);
+    expect((await (await put("wrong")).json<{ code: string }>()).code).toBe("bad_edit_key");
     expect((await put("wrong")).status).toBe(403);
     expect((await put(edit_key)).status).toBe(200);
     expect(await (await call(`/p/${id}`)).text()).toContain("v2");
