@@ -128,7 +128,10 @@ const padIdOfHost = (host: string, padDomain: string) => {
 };
 
 // With PAD_DOMAIN set (and a wildcard DNS record), each pad gets its own subdomain; without it, pads live under /p/<id>.
-const onPadDomain = (c: Context<{ Bindings: Bindings }>) => !!c.env.PAD_DOMAIN && new URL(c.req.url).host === c.env.PAD_DOMAIN;
+const onPadDomain = (c: Context<{ Bindings: Bindings }>) => {
+  const host = new URL(c.req.url).host;
+  return !!c.env.PAD_DOMAIN && (host === c.env.PAD_DOMAIN || !!padIdOfHost(host, c.env.PAD_DOMAIN));
+};
 const publicOrigin = (c: Context<{ Bindings: Bindings }>) => new URL(c.req.url).origin;
 
 // Cloudflare sets cf-connecting-ip; behind another reverse proxy the client is the first X-Forwarded-For entry.

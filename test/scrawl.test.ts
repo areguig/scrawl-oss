@@ -77,6 +77,7 @@ describe("pad subdomains", () => {
     const body = await page.text();
     expect(body).toContain("own origin");
     expect(body).not.toContain("Object.defineProperty(window");
+    expect(body).toMatch(new RegExp(`og:image" content="https://${id}\\.scrawls\\.dev/i/og\\.jpg\\?v=\\d+"`));
   });
 
   it("links every pad back to the home page, once, at the end of the body", async () => {
