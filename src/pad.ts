@@ -192,7 +192,8 @@ export function padHeaders(cdnAllowlist: string, isolated = false): Record<strin
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cdns}`,
     "style-src 'self' 'unsafe-inline' https:",
     "font-src data: https:",
-    "img-src data: blob: https:",
+    // 'self' for the pad's favicon and images when Scrawl is served over plain http.
+    "img-src 'self' data: blob: https:",
     "media-src data: blob: https:",
     "worker-src blob:",
     "connect-src https:",
