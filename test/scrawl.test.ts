@@ -468,6 +468,14 @@ describe("examples", () => {
   });
 });
 
+describe("health", () => {
+  it("answers ok when the database is up", async () => {
+    const res = await call("/health");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+});
+
 describe("homepage and setup", () => {
   it("serves the homepage with absolute link preview urls", async () => {
     const res = await call("/");

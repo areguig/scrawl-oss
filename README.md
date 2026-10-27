@@ -139,6 +139,8 @@ Settings live in `vars` in `wrangler.jsonc`. When you run Scrawl with Docker or 
 
 With Docker or Bun, `DATA_DIR` (default `./data`) and `PORT` (default `8787`) set where data lives and the port.
 
+**Monitoring:** `GET /health` answers `{"ok": true}` while the database is up.
+
 **Reviewing reports:** `SELECT * FROM reports` lists them. To restore a hidden page, run `UPDATE pads SET hidden_at = NULL WHERE id = '<id>'`.
 </details>
 

@@ -34,6 +34,11 @@ describe("self-hosted Scrawl", () => {
     expect((await call(url)).status).toBe(404);
   });
 
+  it("answers the health check", async () => {
+    const { call } = instance();
+    expect(await (await call("http://pads.test/health")).json()).toEqual({ ok: true });
+  });
+
   it("gives each pad its own subdomain when PAD_DOMAIN is set", async () => {
     const { call, publish } = instance({ PAD_DOMAIN: "pads.test" });
     const { id, url } = (await (await publish("<title>t</title>")).json()) as { id: string; url: string };

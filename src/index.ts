@@ -167,6 +167,12 @@ app.get("/skill/:file", servePublicText);
 app.get("/guide.md", servePublicText);
 app.get("/recipes/:file", servePublicText);
 
+// For uptime monitors: up only when the database answers.
+app.get("/health", async (c) => {
+  await c.env.DB.prepare("SELECT 1").first();
+  return c.json({ ok: true });
+});
+
 // Examples go through the same CSP and base styles as a real pad, so visitors see what a pad looks like.
 app.get("/examples/:name", async (c) => {
   const asset = await fetchAsset(c, `/examples/${c.req.param("name").replace(/\.html$/, "")}.html`);
