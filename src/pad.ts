@@ -41,12 +41,32 @@ function injectIntoHead(html: string, snippet: string): string {
 
 const escapeAttr = (text: string) => text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// A tab icon and a link preview card, unless the pad brings its own.
+const plainText = (html: string) => decodeEntities(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+
+// What a link preview says under the title: the pad's own description, else the first paragraph, at the top of the page.
+export function extractDescription(html: string): string {
+  const meta = html.match(/<meta[^>]+name=["']description["'][^>]*>/i)?.[0].match(/content=["']([^"']*)["']/i)?.[1];
+  const paragraph = html.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i)?.[1];
+  const text = meta ? decodeEntities(meta).trim() : paragraph ? plainText(paragraph) : "";
+  return text.length > 200 ? `${text.slice(0, 199).trimEnd()}…` : text;
+}
+
+// A tab icon and a link preview card; each tag the pad sets itself is left to the pad.
 function brandTags(html: string, origin: string): string {
   const icon = /<link[^>]+rel=["'][^"']*icon/i.test(html) ? "" : `<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="apple-touch-icon" href="/apple-touch-icon.png">`;
-  const preview = /property=["']og:/i.test(html)
-    ? ""
-    : `<meta property="og:site_name" content="Scrawl"><meta property="og:type" content="website"><meta property="og:title" content="${escapeAttr(extractTitle(html))}"><meta property="og:image" content="${origin}/og.png"><meta name="twitter:card" content="summary_large_image">`;
+  const description = extractDescription(html);
+  const tags: [string, string][] = [
+    ["og:site_name", "Scrawl"],
+    ["og:type", "website"],
+    ["og:title", extractTitle(html)],
+    ["og:description", description],
+    ["og:image", `${origin}/og.png`],
+    ["twitter:card", "summary_large_image"],
+  ];
+  const preview = tags
+    .filter(([name, value]) => value && !new RegExp(`(?:property|name)=["']${name}["']`, "i").test(html))
+    .map(([name, value]) => `<meta ${name.startsWith("og:") ? "property" : "name"}="${name}" content="${escapeAttr(value)}">`)
+    .join("");
   return icon + preview;
 }
 

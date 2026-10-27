@@ -299,10 +299,20 @@ describe("pad brand tags", () => {
     expect(out).toContain('property="og:image" content="https://scrawl.test/og.png"');
   });
 
-  it("leaves a pad's own icon and preview tags alone", async () => {
+  it("leaves a pad's own icon and preview tags alone, and still names Scrawl", async () => {
     const out = await serve('<html><head><title>t</title><link rel="icon" href="data:,"><meta property="og:title" content="Mine"></head></html>');
     expect(out).not.toContain("/favicon.svg");
     expect(out.match(/og:title/g)).toHaveLength(1);
+    expect(out).toContain('property="og:site_name" content="Scrawl"');
+    expect(out).toContain('property="og:image"');
+  });
+
+  it("describes the pad with its meta description, else its first paragraph", async () => {
+    expect(await serve('<title>t</title><meta name="description" content="Mine &amp; yours">')).toContain('property="og:description" content="Mine &amp; yours"');
+    const out = await serve(`<title>t</title><h1>x</h1><p>First <b>bold</b>\n line.</p><p>second</p>`);
+    expect(out).toContain('property="og:description" content="First bold line."');
+    expect(await serve(`<title>t</title><p>${"word ".repeat(60)}</p>`)).toMatch(/og:description" content="(word ){39}word…"/);
+    expect(await serve("<title>t</title><h1>x</h1>")).not.toContain("og:description");
   });
 });
 
