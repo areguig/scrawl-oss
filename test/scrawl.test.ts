@@ -283,7 +283,12 @@ describe("mobile guarantee", () => {
 });
 
 describe("publish warnings and hints", () => {
-  const warn = async (html: string) => (await (await publish(html)).json<{ warnings: string[] }>()).warnings;
+  const lint = async (html: string) => {
+    const { warnings, advice } = await (await publish(html)).json<{ warnings: string[]; advice: string[] }>();
+    return { warnings, advice };
+  };
+  const warn = async (html: string) => (await lint(html)).warnings;
+  const advise = async (html: string) => (await lint(html)).advice;
 
   it("is silent for a clean pad", async () => {
     const html = '<!doctype html><meta name="viewport" content="width=device-width"><title>ok</title><h1>ok</h1><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>';
@@ -293,26 +298,32 @@ describe("publish warnings and hints", () => {
   it("flags the problems a small model makes", async () => {
     const all = (await warn('<p>x</p><script src="https://evil.example/a.js"></script><script src="app.js"></script><form action="/go"></form><div style="width:900px"></div>')).join("\n");
     expect(all).toContain("No <title>");
-    expect(all).toContain("No viewport");
     expect(all).toContain("evil.example");
     expect(all).toContain("Relative file reference");
     expect(all).toContain("Forms cannot submit");
     expect(all).toContain("Fixed width");
   });
 
-  it("flags the new quality problems", async () => {
-    const w = (await warn('<title>t</title><meta name="viewport" content="width=device-width"><style>p{color:#fff;font-size:9px}</style><img src="https://example.com/a.png"><p>x</p>')).join("\n");
-    expect(w).toContain("No <h1>");
-    expect(w).toContain("Image without alt");
-    expect(w).toContain("Fixed colors");
-    expect(w).toContain("Text under 12px");
+  it("flags tiny text, and only advises on quality hints", async () => {
+    const { warnings, advice } = await lint('<title>t</title><style>p{color:#fff;font-size:9px}</style><img src="https://example.com/a.png"><p>x</p>');
+    expect(warnings.join()).toContain("Text under 12px");
+    expect(advice.join("\n")).toContain("No <h1>");
+    expect(advice.join("\n")).toContain("No viewport");
+    expect(advice.join("\n")).toContain("Image without alt");
+    expect(advice.join("\n")).toContain("Fixed colors");
+  });
+
+  it("does not flag fixed colors when the page declares its color scheme", async () => {
+    const head = '<title>t</title><h1>t</h1><meta name="viewport" content="width=device-width">';
+    expect(await lint(head + "<style>:root{color-scheme:dark}body{background:#0b0b0b}</style>")).toEqual({ warnings: [], advice: [] });
+    expect(await lint(head + '<meta name="color-scheme" content="dark"><style>body{background:#0b0b0b}</style>')).toEqual({ warnings: [], advice: [] });
   });
 
   it("flags a hero text that is too long", async () => {
     const head = '<title>t</title><meta name="viewport" content="width=device-width"><h1>t</h1>';
     const long = "word ".repeat(70);
-    expect((await warn(head + `<header class="hero"><h1>x</h1><p>${long}</p></header>`)).join()).toContain("hero text is long");
-    expect((await warn(head + '<header class="hero"><p>Short and clear.</p></header>')).join()).not.toContain("hero text");
+    expect((await advise(head + `<header class="hero"><h1>x</h1><p>${long}</p></header>`)).join()).toContain("hero text is long");
+    expect((await advise(head + '<header class="hero"><p>Short and clear.</p></header>')).join()).not.toContain("hero text");
   });
 
   it("does not flag fixed colors when the page handles dark mode itself", async () => {

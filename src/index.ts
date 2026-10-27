@@ -52,6 +52,9 @@ async function lint(c: Context<{ Bindings: Bindings }>, html: string): Promise<I
   return [...lintPad(html, c.env.CDN_ALLOWLIST), ...(await alpineIssues(html))];
 }
 
+const messages = (issues: Issue[], level: Issue["level"]) => issues.filter((i) => i.level === level).map((i) => i.message);
+const lintReply = (issues: Issue[]) => ({ warnings: messages(issues, "fix"), advice: messages(issues, "advice") });
+
 type PadBody = { html: string; title?: string; ttlDays?: number };
 
 // expires_in_days comes from the JSON body, or from the query string when the body is raw HTML.
@@ -199,7 +202,7 @@ app.post("/api/publish", async (c) => {
       url: padUrl(c, id),
       edit_key: editKey,
       expires_at: new Date(expiresAt).toISOString(),
-      warnings: issues.map((i) => i.message),
+      ...lintReply(issues),
       update: `PUT ${origin}/api/pads/${id} with header x-edit-key: ${editKey} and the new HTML as the body (same link). Each update keeps the pad another ${ttlDays} days.`,
       delete: `DELETE ${origin}/api/pads/${id} with header x-edit-key: ${editKey}`,
     },
@@ -227,7 +230,7 @@ app.put("/api/pads/:id", async (c) => {
     .first<{ expires_at: number }>();
   const issues = await lint(c, body.html);
   await logStats(c, "updated", issues);
-  return c.json({ id, url: padUrl(c, id), expires_at: new Date(row!.expires_at).toISOString(), warnings: issues.map((i) => i.message) });
+  return c.json({ id, url: padUrl(c, id), expires_at: new Date(row!.expires_at).toISOString(), ...lintReply(issues) });
 });
 
 app.delete("/api/pads/:id", async (c) => {

@@ -78,9 +78,9 @@ To send the file with a shell, write it to a temp file first (any writable path,
 
 The reply is JSON:
 ```
-{"id","url","edit_key","expires_at","warnings":[...],"update":"...","delete":"..."}
+{"id","url","edit_key","expires_at","warnings":[...],"advice":[...],"update":"...","delete":"..."}
 ```
-1. Read `warnings`. Fix every one, then update the pad (below).
+1. Read `warnings`: each one breaks the page for readers. Fix every one, then update the pad (below). `advice` holds quality hints: follow them when they fit the page.
 2. Show `url` to the user, and when it expires (`expires_at`).
 3. Keep `id` and `edit_key` for this conversation. `update` and `delete` tell you exactly how to change or remove the pad.
 

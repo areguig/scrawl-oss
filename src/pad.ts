@@ -72,24 +72,25 @@ export function preparePad(html: string, { origin, home = origin, isolated = fal
   return appendToBody(head, madeWith(home, padId));
 }
 
-export type Issue = { code: string; message: string };
+// "fix" breaks the page for readers; "advice" is a quality hint the agent may skip.
+export type Issue = { code: string; message: string; level: "fix" | "advice" };
 
 export function lintPad(html: string, cdnAllowlist: string): Issue[] {
   const issues: Issue[] = [];
-  const add = (code: string, message: string) => issues.push({ code, message });
+  const add = (code: string, message: string, level: Issue["level"] = "fix") => issues.push({ code, message, level });
   const styleBlocks = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join("\n");
   const styleAttrs = [...html.matchAll(/\bstyle=["']([^"']*)["']/gi)].map((m) => m[1]).join("\n");
   const ownCss = styleBlocks + "\n" + styleAttrs;
 
   if (/\bEDIT\b/.test(html)) add("edit-left", "Leftover EDIT placeholder text: replace it with real content or delete that part.");
   if (!/<title[^>]*>\s*\S/i.test(html)) add("no-title", "No <title>: add one, it names the pad.");
-  if (!/<h1[\s>]/i.test(html)) add("no-h1", "No <h1>: add one headline that states the takeaway.");
-  if (!hasViewport(html)) add("no-viewport", "No viewport meta tag: Scrawl added one, but add it yourself so the page is mobile friendly.");
+  if (!/<h1[\s>]/i.test(html)) add("no-h1", "No <h1>: add one headline that states the takeaway.", "advice");
+  if (!hasViewport(html)) add("no-viewport", "No viewport meta tag: Scrawl added one, but add it yourself so the page is mobile friendly.", "advice");
   const hero = html.match(/<header[^>]*class=["'][^"']*\bhero\b[^"']*["'][^>]*>([\s\S]*?)<\/header>/i);
   if (hero && [...hero[1].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].some((m) => m[1].replace(/<[^>]+>/g, "").trim().length > 260)) {
-    add("long-hero", "The hero text is long (over about 40 words): keep it to one or two short sentences and move the detail into a callout or the page body.");
+    add("long-hero", "The hero text is long (over about 40 words): keep it to one or two short sentences and move the detail into a callout or the page body.", "advice");
   }
-  if (/<img\b(?![^>]*\balt=)[^>]*>/i.test(html)) add("img-alt", 'Image without alt text: add alt="..." describing it, or alt="" if it is decoration.');
+  if (/<img\b(?![^>]*\balt=)[^>]*>/i.test(html)) add("img-alt", 'Image without alt text: add alt="..." describing it, or alt="" if it is decoration.', "advice");
 
   const allowed = new Set(cdnAllowlist.split(/\s+/).filter(Boolean));
   const blocked = new Set<string>();
@@ -111,8 +112,14 @@ export function lintPad(html: string, cdnAllowlist: string): Issue[] {
   }
   const classes = [...html.matchAll(/\bclass=["']([^"']*)["']/gi)].map((m) => m[1]).join(" ");
   const paletteClass = /(?:^|\s)(?:bg|text|border|from|via|to|ring|fill|stroke)-(?:\[#|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)\b)/;
-  if (((/#[0-9a-f]{3,8}\b|rgba?\(/i.test(ownCss) && !/prefers-color-scheme/i.test(html)) || (paletteClass.test(classes) && !/\bdark:/.test(classes)))) {
-    add("fixed-colors", "Fixed colors will not follow dark mode: use theme classes (bg-base-100, text-primary, text-success, opacity-70) instead of hex codes or Tailwind colors like text-blue-500.");
+  // A page that declares its color scheme chose its colors on purpose; a page with its own design (no Scrawl stack) only gets advice.
+  const ownScheme = /prefers-color-scheme|color-scheme\s*:|<meta[^>]+name=["']?color-scheme/i.test(html);
+  if (!ownScheme && (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(ownCss) || (paletteClass.test(classes) && !/\bdark:/.test(classes)))) {
+    add(
+      "fixed-colors",
+      "Fixed colors will not follow dark mode: use theme classes (bg-base-100, text-primary, text-success, opacity-70) instead of hex codes or Tailwind colors like text-blue-500. A page with its own design can declare color-scheme instead.",
+      /<script[^>]+src=["']\/scrawl\.js["']/i.test(html) ? "fix" : "advice",
+    );
   }
   if ([...ownCss.matchAll(/font-size:\s*(\d*\.?\d+)(px|rem|em)/gi)].some(([, n, unit]) => (unit === "px" ? Number(n) < 12 : Number(n) < 0.75))) {
     add("tiny-text", "Text under 12px is hard to read on a phone: use 14px (0.875rem) or larger.");
@@ -172,8 +179,8 @@ export async function alpineIssues(html: string): Promise<Issue[]> {
     .transform(new Response(html))
     .text();
   const issues: Issue[] = [];
-  if (orphan) issues.push({ code: "alpine-scope", message: `Alpine attribute ${orphan} is outside every x-data element, so it shows nothing: put x-data on one element that wraps everything using its data, such as <main>.` });
-  if (broken.size) issues.push({ code: "alpine-syntax", message: `Alpine code that is not valid JavaScript, so that part shows nothing: ${[...broken].join("; ")}. Check the quotes: in an attribute written with double quotes use single quotes inside, and never write \\".` });
+  if (orphan) issues.push({ code: "alpine-scope", level: "fix", message: `Alpine attribute ${orphan} is outside every x-data element, so it shows nothing: put x-data on one element that wraps everything using its data, such as <main>.` });
+  if (broken.size) issues.push({ code: "alpine-syntax", level: "fix", message: `Alpine code that is not valid JavaScript, so that part shows nothing: ${[...broken].join("; ")}. Check the quotes: in an attribute written with double quotes use single quotes inside, and never write \\".` });
   return issues;
 }
 
