@@ -98,6 +98,9 @@ After publishing, tell the user the link and one or two sentences with the main 
 ## 3. Update the same link
 `PUT {{BASE_URL}}/api/pads/<id>` with header `x-edit-key: <edit_key>` and the new HTML as the body. Do not publish a new pad for each change.
 
+## 4. Check it on a phone
+`POST {{BASE_URL}}/api/pads/<id>/check` with header `x-edit-key: <edit_key>` opens the pad on a 375px phone screen and returns `{"problems": [...]}`: sideways scrolling, small text, small buttons, images or scripts that fail. Fix them and update the pad. Add `?screenshot=1` to get a PNG of the whole page instead. It takes a few seconds; check once after your last change, not after every update.
+
 ## If publishing fails
 Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
 
@@ -110,6 +113,7 @@ Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
 | 415 | `image_type` | send the raw bytes of a JPEG, PNG, WebP or GIF |
 | 422 | `password_field`, `image_limit` | remove the password field; reuse or drop images |
 | 429 | `publish_limit` | 20 new pads per hour reached: update an existing pad with PUT |
+| 501, 503 | `check_unavailable`, `check_busy` | the check is off on this Scrawl, or busy: skip it or try again in a minute |
 
 An error that is not JSON (an HTML page, often a 403) comes from a firewall between you and Scrawl, not from Scrawl. Retry once with another HTTP client or a `User-Agent` header (`curl` works), and tell the user if it still fails.
 

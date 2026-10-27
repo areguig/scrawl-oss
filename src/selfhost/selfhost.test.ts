@@ -86,6 +86,14 @@ describe("self-hosted Scrawl", () => {
     expect((await call(images["photo.png"])).status).toBe(200);
   });
 
+  it("says a pad check is unavailable, since Bun has no browser", async () => {
+    const { call, publish } = instance();
+    const { id, edit_key } = (await (await publish("<title>t</title>")).json()) as { id: string; edit_key: string };
+    const res = await call(`http://pads.test/api/pads/${id}/check`, { method: "POST", headers: { "x-edit-key": edit_key } });
+    expect(res.status).toBe(501);
+    expect(((await res.json()) as { code: string }).code).toBe("check_unavailable");
+  });
+
   it("hides reported pads and expires old ones", async () => {
     const { env, call, publish } = instance({ REPORT_HIDE_THRESHOLD: "2" });
     const { id, url } = (await (await publish("<title>t</title>")).json()) as { id: string; url: string };

@@ -54,7 +54,7 @@ function brandTags(html: string, origin: string): string {
 // and padding instead of margin so it cannot leak past the body background.
 const FONT = "font:500 14px/1.2 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif";
 const madeWith = (home: string, padId?: string) =>
-  `<div style="all:initial;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;color:inherit;padding:40px 16px 24px">` +
+  `<div data-scrawl-footer style="all:initial;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;color:inherit;padding:40px 16px 24px">` +
   `<a href="${home}/?ref=pad" target="_blank" rel="noopener" style="all:initial;box-sizing:border-box;display:flex;max-width:100%;align-items:center;gap:6px;padding:6px 12px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);color:inherit;opacity:.6;${FONT};cursor:pointer;text-decoration:none;white-space:nowrap"><svg viewBox="0 0 64 64" width="16" height="16" aria-hidden="true" style="all:initial;width:16px;height:16px;flex:none"><path d="M0 18A18 18 0 0 1 18 0A46 46 0 0 1 64 46A18 18 0 0 1 46 64A46 46 0 0 1 0 18Z" fill="#e2531f"/><path d="M17 40C25 25 33 51 47 24" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/></svg><span style="all:unset">Made with Scrawl · make your own</span></a>` +
   (padId ? `<a href="${home}/report?pad=${padId}" target="_blank" rel="noopener" style="all:initial;color:inherit;opacity:.45;${FONT};cursor:pointer;text-decoration:underline;text-underline-offset:3px">Report</a>` : "") +
   `</div>`;

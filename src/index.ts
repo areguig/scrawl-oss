@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { checkPad } from "./check";
 import { deleteImageObjects, IMAGE_NAME, imageHeaders, imageTypeOf } from "./images";
 import { alpineIssues, extractTitle, hashKey, lintPad, newEditKey, newId, padHeaders, preparePad, type Issue } from "./pad";
 
@@ -16,6 +17,8 @@ type Bindings = {
   IMAGES: R2Bucket;
   IMAGE_MAX_BYTES: string;
   IMAGE_MAX_PER_PAD: string;
+  // Cloudflare Browser Rendering; absent on Bun.
+  BROWSER?: Fetcher;
 };
 
 const DAY_MS = 86_400_000;
@@ -326,6 +329,22 @@ app.post("/api/pads/:id/images", async (c) => {
   const url = await storeImage(c, id, bytes);
   if (url instanceof Response) return url;
   return c.json({ url, bytes: bytes.length }, 201);
+});
+
+// The author sees the pad as a phone reader does: problems found, or the screenshot with ?screenshot=1.
+app.post("/api/pads/:id/check", async (c) => {
+  const id = c.req.param("id");
+  const auth = await authorised(c, id);
+  if (auth !== true) return authFailure(auth);
+  if (!c.env.BROWSER) return fail(501, "check_unavailable", "this Scrawl has no browser to check pads with");
+  const withScreenshot = c.req.query("screenshot") === "1";
+  const report = await checkPad(c.env.BROWSER, padUrl(c, id), withScreenshot).catch((err) => {
+    console.error(err);
+    return fail(503, "check_busy", "no browser free to check the pad: try again in a minute");
+  });
+  if (report instanceof Response) return report;
+  if (report.screenshot) return new Response(report.screenshot, { headers: { "content-type": "image/png" } });
+  return c.json({ url: report.url, width: report.width, problems: report.problems });
 });
 
 const REPORT_REASONS = new Set(["phishing", "scam", "malware", "illegal", "other"]);

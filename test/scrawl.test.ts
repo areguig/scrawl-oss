@@ -508,6 +508,13 @@ describe("examples", () => {
   });
 });
 
+describe("check", () => {
+  it("needs the edit key", async () => {
+    const { id } = await (await publish("<title>t</title>")).json<{ id: string }>();
+    expect((await call(`/api/pads/${id}/check`, { method: "POST", headers: { "x-edit-key": "wrong" } })).status).toBe(403);
+  });
+});
+
 describe("health", () => {
   it("answers ok when the database is up", async () => {
     const res = await call("/health");
