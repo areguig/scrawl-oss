@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { checkPad } from "./check";
+import { handleMcp } from "./mcp";
 import { deleteImageObjects, IMAGE_NAME, imageHeaders, imageTypeOf } from "./images";
 import { alpineIssues, extractTitle, hashKey, lintPad, newEditKey, newId, padHeaders, preparePad, type Issue } from "./pad";
 
@@ -366,6 +367,20 @@ app.post("/api/report", async (c) => {
     .run();
   return c.json({ ok: true });
 });
+
+const CLIENT_HEADERS = ["cf-connecting-ip", "x-forwarded-for", "x-real-ip"];
+
+// MCP tools call the HTTP API in-process, as the same client, so limits and checks apply to both alike.
+app.all("/mcp", (c) =>
+  handleMcp(c.req.raw, (path, init = {}) => {
+    const headers = new Headers(init.headers);
+    for (const name of CLIENT_HEADERS) {
+      const value = c.req.header(name);
+      if (value) headers.set(name, value);
+    }
+    return app.fetch(new Request(new URL(path, c.req.url), { ...init, headers }), c.env, c.executionCtx);
+  }),
+);
 
 app.get("/p/:id/i/:name", (c) => serveImage(c, c.req.param("id"), c.req.param("name")));
 

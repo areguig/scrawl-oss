@@ -13,8 +13,10 @@
     "test:selfhost": "bun test src/selfhost"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "acorn": "^8.19.0",
-    "hono": "^4.13.13"
+    "hono": "^4.13.13",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@cloudflare/puppeteer": "^1.4.0",

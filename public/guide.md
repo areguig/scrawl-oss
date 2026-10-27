@@ -2,6 +2,8 @@
 
 Scrawl turns one HTML page into a shareable link. You only need to fetch URLs and make one POST: no shell, no install, no local files.
 
+With the Scrawl MCP server ({{BASE_URL}}/mcp), the tools `get_recipe`, `publish_pad`, `update_pad` and `check_pad` make the calls below for you, with the same fields and replies.
+
 ## 1. Pick a recipe
 Fetch the closest one with GET, replace everything marked `EDIT`, keep the structure. Do not start from a blank page. Every recipe already looks good on a phone and in dark mode.
 

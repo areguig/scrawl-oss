@@ -23,3 +23,5 @@ Say: "Scrawl is installed. Ask me to build a page, chart or small tool and I wil
 Do not publish anything yet. Do not store secrets.
 
 Agent without a shell or a skills folder (a web chat, for example): skip the install. Just read {{BASE_URL}}/guide.md when the user asks for a page.
+
+Agent that takes remote MCP servers: instead of the skill, the user can add `{{BASE_URL}}/mcp` (Streamable HTTP, no sign-in). In Claude Code: `claude mcp add --transport http scrawl {{BASE_URL}}/mcp`.

@@ -516,6 +516,46 @@ describe("check", () => {
   });
 });
 
+describe("mcp", () => {
+  let id = 0;
+  const rpc = async (method: string, params: object = {}) => {
+    const res = await call("/mcp", {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }),
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "cf-connecting-ip": `10.5.0.${++nextIp}` },
+    });
+    return (await res.json<{ result: any }>()).result;
+  };
+  const tool = async (name: string, args: object = {}) => {
+    const { content, isError } = await rpc("tools/call", { name, arguments: args });
+    return { body: JSON.parse(content[0].text), isError };
+  };
+
+  it("lists the pad tools and tells agents to read the guide first", async () => {
+    const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+    expect(init.instructions).toContain("get_guide");
+    const names = (await rpc("tools/list")).tools.map((t: { name: string }) => t.name);
+    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "check_pad"]);
+  });
+
+  it("publishes and updates a pad through the HTTP API", async () => {
+    const { body: pad } = await tool("publish_pad", { html: "<title>t</title><h1>v1</h1>", expires_in_days: 7 });
+    expect(pad.url).toBe(`https://scrawl.test/p/${pad.id}`);
+    const { body: updated } = await tool("update_pad", { id: pad.id, edit_key: pad.edit_key, html: "<title>t</title><h1>v2</h1>" });
+    expect(updated.warnings).toEqual([]);
+    expect(await (await call(`/p/${pad.id}`)).text()).toContain("v2");
+    const refused = await tool("update_pad", { id: pad.id, edit_key: "wrong", html: "<p>x</p>" });
+    expect(refused).toEqual({ body: { error: "bad edit key", code: "bad_edit_key" }, isError: true });
+  });
+
+  it("serves the guide and recipes", async () => {
+    const guide = await rpc("tools/call", { name: "get_guide", arguments: {} });
+    expect(guide.content[0].text).toContain("https://scrawl.test/api/publish");
+    const recipe = await rpc("tools/call", { name: "get_recipe", arguments: { name: "chart" } });
+    expect(recipe.content[0].text).toContain('<script src="/scrawl.js"></script>');
+  });
+});
+
 describe("health", () => {
   it("answers ok when the database is up", async () => {
     const res = await call("/health");

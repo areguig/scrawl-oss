@@ -94,6 +94,18 @@ describe("self-hosted Scrawl", () => {
     expect(((await res.json()) as { code: string }).code).toBe("check_unavailable");
   });
 
+  it("publishes a pad through the MCP endpoint", async () => {
+    const { call } = instance();
+    const res = await call("http://pads.test/mcp", {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "publish_pad", arguments: { html: "<title>t</title><h1>mcp</h1>" } } }),
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "x-forwarded-for": "10.3.0.1" },
+    });
+    const { result } = (await res.json()) as { result: { content: { text: string }[] } };
+    const { url } = JSON.parse(result.content[0].text) as { url: string };
+    expect(await (await call(url)).text()).toContain("mcp");
+  });
+
   it("hides reported pads and expires old ones", async () => {
     const { env, call, publish } = instance({ REPORT_HIDE_THRESHOLD: "2" });
     const { id, url } = (await (await publish("<title>t</title>")).json()) as { id: string; url: string };
