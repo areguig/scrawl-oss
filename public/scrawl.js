@@ -15,7 +15,7 @@
     ".badge-outline.badge-warning{color:color-mix(in oklch,oklch(var(--wa)) 55%,oklch(var(--bc)))}" +
     // html prefix: map CSS loads after this style and would win a tie.
     "html .maplibregl-popup-content{background:oklch(var(--b1));color:oklch(var(--bc));border-radius:.75rem;padding:.75rem 1rem}html .maplibregl-popup-anchor-bottom .maplibregl-popup-tip{border-top-color:oklch(var(--b1))}" +
-    "html .maplibregl-ctrl-attrib{background:oklch(var(--b1)/.75);color:oklch(var(--bc)/.7);font-size:11px}html .maplibregl-ctrl-attrib a{color:inherit}" +
+    "html .maplibregl-ctrl-attrib{background:oklch(var(--b1)/.75);color:oklch(var(--bc)/.7);font-size:12px}html .maplibregl-ctrl-attrib a{color:inherit}" +
     ".alert{grid-auto-flow:column;grid-template-columns:auto minmax(auto,1fr);justify-items:start;text-align:start}" +
     // Soft alerts: a tinted box reads as a note, a solid one as an error page.
     ["info", "in", "success", "su", "warning", "wa", "error", "er"].reduce(function (out, v, i, a) {
