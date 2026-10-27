@@ -38,7 +38,7 @@
         "description": "Reports from different readers before a page is hidden for review."
       },
       "CDN_ALLOWLIST": {
-        "description": "Space-separated hosts pages may load scripts and styles from."
+        "description": "Space-separated hosts pages may load scripts from. Stylesheets, fonts and images may come from any https host."
       }
     }
   }

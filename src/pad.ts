@@ -93,11 +93,12 @@ export function lintPad(html: string, cdnAllowlist: string): Issue[] {
 
   const allowed = new Set(cdnAllowlist.split(/\s+/).filter(Boolean));
   const blocked = new Set<string>();
-  for (const [, url] of html.matchAll(/<(?:script|link)\b[^>]*?(?:src|href)=["'](https?:\/\/[^"']+)["']/gi)) {
+  // Only scripts are held to the allowlist: stylesheets and fonts may come from any https host.
+  for (const [, url] of html.matchAll(/<script\b[^>]*?\bsrc=["'](https?:\/\/[^"']+)["']/gi)) {
     const host = new URL(url).host;
     if (!allowed.has(host)) blocked.add(host);
   }
-  if (blocked.size) add("cdn-blocked", `Blocked by the CSP, will not load: ${[...blocked].join(", ")}. Allowed hosts: ${[...allowed].join(", ")}.`);
+  if (blocked.size) add("cdn-blocked", `Scripts blocked by the CSP, will not load: ${[...blocked].join(", ")}. Scripts may come from: ${[...allowed].join(", ")}.`);
   if (/<(?:script|link|img)\b[^>]*?(?:src|href)=["'](?!https?:|data:|#|mailto:|\/(?:scrawl\.js|favicon\.svg|apple-touch-icon\.png|og\.png)["'])[^"']+["']/i.test(html.replace(/<a\b[^>]*>/gi, ""))) {
     add("relative-file", "Relative file reference (src/href to a local file) will not load: pads are a single file, inline it.");
   }
@@ -182,8 +183,8 @@ export function padHeaders(cdnAllowlist: string, isolated = false): Record<strin
     `sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals${isolated ? " allow-same-origin" : ""}`,
     "default-src 'none'",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cdns}`,
-    `style-src 'self' 'unsafe-inline' ${cdns}`,
-    `font-src data: ${cdns}`,
+    "style-src 'self' 'unsafe-inline' https:",
+    "font-src data: https:",
     "img-src data: blob: https:",
     "media-src data: blob: https:",
     "worker-src blob:",

@@ -121,7 +121,7 @@ After publishing, tell the user the link and one or two sentences with the main 
 - One file. Extra CSS in `<style>`, extra JavaScript in `<script>`. The only local file allowed is `/scrawl.js`.
 - Mobile first. Keep `<meta name="viewport" content="width=device-width, initial-scale=1">`. No fixed widths over 480px. Recipes are already right on a phone.
 - Add a `<title>`.
-- Libraries only from: cdn.jsdelivr.net, cdnjs.cloudflare.com, unpkg.com, cdn.tailwindcss.com, esm.sh, fonts.googleapis.com, fonts.gstatic.com. Pin a version (`chart.js@4.4.0`).
+- Scripts only from: cdn.jsdelivr.net, cdnjs.cloudflare.com, unpkg.com, cdn.tailwindcss.com, esm.sh. Pin a version (`chart.js@4.4.0`). Stylesheets, fonts and images may come from any https URL.
 - Pads are public to anyone with the link and cannot be listed. No secrets, no personal data.
 - Forms cannot submit anywhere: use JavaScript. `fetch` to https URLs works.
 - Saving is per reader and per device: `$persist` or `localStorage` keep values when that reader comes back on the same browser. Nothing is shared between readers, and the pad's author cannot see it. Never ask readers for secrets or personal data.

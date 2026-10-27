@@ -135,7 +135,7 @@ Settings live in `vars` in `wrangler.jsonc`. When you run Scrawl with Docker or 
 | `IMAGE_MAX_BYTES` | 2000000 | largest uploaded image |
 | `IMAGE_MAX_PER_PAD` | 20 | images per page |
 | `REPORT_HIDE_THRESHOLD` | 3 | reports from different readers before a page is hidden |
-| `CDN_ALLOWLIST` | jsDelivr, cdnjs, unpkg, Tailwind, Google Fonts, esm.sh | hosts pages may load code from |
+| `CDN_ALLOWLIST` | jsDelivr, cdnjs, unpkg, Tailwind, Google Fonts, esm.sh | hosts pages may load scripts from (stylesheets, fonts and images may come from any https host) |
 
 With Docker or Bun, `DATA_DIR` (default `./data`) and `PORT` (default `8787`) set where data lives and the port.
 

@@ -23,7 +23,8 @@ describe("publish and serve", () => {
     expect(csp).toContain("allow-popups-to-escape-sandbox");
     expect(csp).toContain("https://cdn.jsdelivr.net");
     expect(csp).toContain("form-action 'none'");
-    expect(csp).toContain("style-src 'self'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https:");
+    expect(csp).toContain("font-src data: https:");
     expect(page.headers.get("x-robots-tag")).toContain("noindex");
     const body = await page.text();
     expect(body).toContain("<body>hi<div ");
@@ -364,6 +365,12 @@ describe("publish warnings and hints", () => {
   it("flags OpenStreetMap tiles, which are blocked for pads", async () => {
     const head = '<meta name="viewport" content="width=device-width"><title>t</title><h1>t</h1>';
     expect((await warn(head + '<script>L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")</script>')).join()).toContain("OpenFreeMap");
+  });
+
+  it("holds scripts to the allowlist but lets stylesheets come from any https host", async () => {
+    const head = '<meta name="viewport" content="width=device-width"><title>t</title><h1>t</h1>';
+    expect(await warn(head + '<link rel="stylesheet" href="https://example.github.io/site.css">')).toEqual([]);
+    expect((await warn(head + '<script src="https://example.github.io/app.js"></script>')).join()).toContain("Scripts blocked by the CSP");
   });
 
   it("does not flag normal links as relative files", async () => {
