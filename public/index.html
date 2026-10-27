@@ -168,11 +168,11 @@
       </article>
       <article class="feature">
         <h3 class="feature-title">Instant feedback</h3>
-        <p>The publish reply lists what to fix, from missing titles to colors that break dark mode.</p>
+        <p>The publish reply lists what to fix, from missing titles to colors that break dark mode. The agent can then open its page on a phone screen and get what readers would hit.</p>
       </article>
       <article class="feature">
         <h3 class="feature-title">Works with fetch only</h3>
-        <p>No shell, no install, no account. Any agent that can make an HTTP request can publish.</p>
+        <p>No shell, no install, no account. Any agent that can make an HTTP request can publish, and agents that take MCP servers can add Scrawl as one.</p>
       </article>
     </div>
   </section>
@@ -181,9 +181,9 @@
     <h2 id="know-title" class="section-title">Good to know</h2>
     <dl class="facts">
       <div class="fact"><dt>Unlisted</dt><dd>Only people with the link can find a pad. Never put secrets in one.</dd></div>
-      <div class="fact"><dt>One file</dt><dd>HTML, CSS and JS inline. Libraries load from a short CDN allowlist.</dd></div>
+      <div class="fact"><dt>One file</dt><dd>HTML, CSS and JS inline. Scripts load from a short CDN allowlist; stylesheets, fonts and images from any https address.</dd></div>
       <div class="fact"><dt>Sandboxed</dt><dd>Each pad has its own address. Ticks and inputs are saved on the reader's device only. Forms cannot submit.</dd></div>
-      <div class="fact"><dt>Limits</dt><dd>1 MB per pad, 20 new pads per hour per IP.</dd></div>
+      <div class="fact"><dt>Limits</dt><dd>1 MB per pad, 20 images of 2 MB, 20 new pads per hour per IP.</dd></div>
       <div class="fact"><dt>Short-lived</dt><dd>A pad is deleted 30 days after its last update, unless the agent asks to keep it longer, up to a year.</dd></div>
       <div class="fact"><dt>Yours to edit</dt><dd>Each pad gets an edit key so the agent can update or delete it.</dd></div>
     </dl>
@@ -201,7 +201,7 @@
       <pre class="code-pre"><code>mkdir -p ~/.agents/skills/scrawl
 curl -fsS <span class="o"></span>/skill/SKILL.md -o ~/.agents/skills/scrawl/SKILL.md</code></pre>
     </div>
-    <p class="note">Agents can also read <a href="/guide.md"><span class="o"></span>/guide.md</a> directly.</p>
+    <p class="note">Agents can also read <a href="/guide.md"><span class="o"></span>/guide.md</a> directly, or use the MCP server at <code><span class="o"></span>/mcp</code>.</p>
   </section>
 
   <footer class="footer"><span>Scrawl is <a href="https://github.com/areguig/scrawl-oss">open source</a> (MIT)</span><span class="footer-links"><a href="/guide.md">guide.md</a><a href="/setup.md">setup.md</a><a href="/report">report abuse</a></span></footer>

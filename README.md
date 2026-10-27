@@ -25,10 +25,10 @@
 
 ## Why Scrawl
 
-- **Works with small models.** Agents start from one of 14 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript.
+- **Works with small models.** Agents start from one of 14 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript, and agents can check their page on a phone-sized screen.
 - **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
 - **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days.
-- **Nothing to install.** Any agent that can fetch a URL can publish. Claude Code, Copilot CLI, OpenCode and others get a one-line skill.
+- **Nothing to install.** Any agent that can fetch a URL can publish. Claude Code, Copilot CLI, OpenCode and others get a one-line skill, and MCP clients can add Scrawl as a remote server (`/mcp`).
 
 ## Try it
 
