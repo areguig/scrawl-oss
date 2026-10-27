@@ -153,6 +153,7 @@ npm install
 npm test               # Cloudflare runtime
 npm run test:selfhost  # Bun runtime
 npm run typecheck
+npm run smoke -- https://your-host   # a live instance answers agents' HTTP clients
 ```
 
 The app is one [Hono](https://hono.dev) Worker in `src/`. `src/selfhost/` runs the same code on Bun with SQLite and files on disk.

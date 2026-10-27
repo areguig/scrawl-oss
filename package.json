@@ -9,6 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "pad:delete": "node scripts/pad-delete.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "start": "bun src/selfhost/main.ts",
     "test:selfhost": "bun test src/selfhost"
   },
