@@ -25,7 +25,7 @@
 
 ## Why Scrawl
 
-- **Works with small models.** Agents start from one of 14 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript, and agents can check their page on a phone-sized screen.
+- **Works with small models.** Agents start from one of 15 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript, and agents can check their page on a phone-sized screen.
 - **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
 - **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days. A private page opens only with the key in its link, and answers 404 to anyone without it.
 - **Made for scheduled jobs.** A job can refresh a page's JSON data without sending the page again, and a series page keeps its last 30 editions.

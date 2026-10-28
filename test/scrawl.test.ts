@@ -298,6 +298,15 @@ describe("data and series", () => {
     expect((await at(`https://${id}.scrawls.dev/e`)).status).toBe(200);
   });
 
+  it("ships a live recipe that, filled in, publishes clean and reads the data", async () => {
+    const recipe = await (await call("/recipes/live.html")).text();
+    const filled = recipe.replace(/<!--[\s\S]*?-->/g, "").replace(/EDIT:? /g, "");
+    const { id, url, edit_key, warnings } = (await publishJson({ html: filled })) as Published & { warnings: string[] };
+    expect(warnings).toEqual([]);
+    await putData(id, edit_key, JSON.stringify({ updated: "today", stats: [], chart: { name: "c", labels: ["a"], values: [1] }, rows: [{ name: "api", status: "ok", value: 1 }] }));
+    expect(await page(url)).toContain('"status":"ok"');
+  });
+
   it("cleans up the editions of pads deleted by hand", async () => {
     const { id, edit_key } = await publishJson({ html: "<title>t</title>", series: true });
     await putPage(id, edit_key, "<title>v2</title>");

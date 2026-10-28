@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDIT: what the page tracks, e.g. Nightly build health</title>
+  <script src="/scrawl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!--
+    EDIT: this page shows the pad's data. Publish it once, then on each run send only the data:
+    PUT /api/pads/<id>/data with header x-edit-key and a JSON body shaped like this (keep the keys):
+    {
+      "updated": "2026-10-28 09:00",
+      "stats": [{ "title": "Builds", "value": "42", "desc": "6 more than yesterday" }],
+      "chart": { "name": "Failures per day", "labels": ["Mon", "Tue"], "values": [3, 1] },
+      "rows": [{ "name": "api", "status": "ok", "value": 120 }]
+    }
+    status is "ok", "warn" or "fail". Delete this comment when the page is ready.
+  -->
+  <script>
+    // Do not edit: the data Scrawl puts in the page, or null before the first upload.
+    var live = JSON.parse(document.getElementById("scrawl-data")?.textContent ?? "null");
+  </script>
+</head>
+<body>
+<main class="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-6" x-data="{ d: live, key: 'name', asc: true,
+  sort(k) { this.asc = this.key === k ? !this.asc : true; this.key = k },
+  get rows() { return [...(this.d?.rows ?? [])].sort((a, b) => (a[this.key] > b[this.key] ? 1 : a[this.key] < b[this.key] ? -1 : 0) * (this.asc ? 1 : -1)) } }">
+
+  <header>
+    <p class="text-sm font-semibold text-primary">EDIT: topic · <span x-text="d ? 'updated ' + d.updated : 'waiting for data'"></span></p>
+    <h1 class="text-3xl md:text-5xl font-bold mt-1">EDIT: what the page tracks</h1>
+    <p class="text-lg opacity-70 mt-3 max-w-2xl">EDIT: one short sentence on what to look at first.</p>
+  </header>
+
+  <div role="alert" class="alert" x-show="!d"><i data-lucide="clock"></i><span>No data yet: the first run has not sent it.</span></div>
+
+  <div class="stats stats-vertical sm:stats-horizontal w-full bg-base-100 border border-base-300" x-show="d?.stats?.length">
+    <template x-for="s in d?.stats ?? []" :key="s.title">
+      <div class="stat">
+        <div class="stat-title" x-text="s.title"></div>
+        <div class="stat-value" x-text="s.value"></div>
+        <div class="stat-desc" x-text="s.desc"></div>
+      </div>
+    </template>
+  </div>
+
+  <section class="card bg-base-100" x-show="d?.chart">
+    <div class="card-body">
+      <h2 class="card-title" x-text="d?.chart?.name"></h2>
+      <div class="relative h-72 md:h-96"><canvas id="chart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card bg-base-100" x-show="d?.rows?.length">
+    <div class="card-body">
+      <h2 class="card-title">EDIT: table name</h2>
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="cursor-pointer select-none" @click="sort('name')">Name <span x-show="key === 'name'" x-text="asc ? '↑' : '↓'"></span></th>
+              <th class="cursor-pointer select-none" @click="sort('status')">Status <span x-show="key === 'status'" x-text="asc ? '↑' : '↓'"></span></th>
+              <th class="cursor-pointer select-none text-right" @click="sort('value')">Value <span x-show="key === 'value'" x-text="asc ? '↑' : '↓'"></span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in rows" :key="r.name">
+              <tr class="hover">
+                <td class="font-medium" x-text="r.name"></td>
+                <td><span class="badge badge-outline" :class="{ ok: 'badge-success', warn: 'badge-warning', fail: 'badge-error' }[r.status]" x-text="r.status"></span></td>
+                <td class="text-right" x-text="r.value"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-sm opacity-60">Source: EDIT where the job gets the data.</footer>
+</main>
+
+<script>
+  // Do not edit: draws the chart from the data, with theme colors that follow dark mode.
+  let chart;
+  function draw() {
+    if (!live?.chart) return;
+    const css = getComputedStyle(document.documentElement);
+    const p = `oklch(${css.getPropertyValue("--p").trim()})`;
+    const text = `oklch(${css.getPropertyValue("--bc").trim()} / 0.6)`;
+    const grid = `oklch(${css.getPropertyValue("--bc").trim()} / 0.1)`;
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: { labels: live.chart.labels, datasets: [{ label: live.chart.name, data: live.chart.values, backgroundColor: p, borderRadius: 6 }] },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { color: text }, grid: { color: grid } }, y: { beginAtZero: true, ticks: { color: text }, grid: { color: grid } } },
+      },
+    });
+  }
+  draw();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+</script>
+</body>
+</html>

@@ -13,6 +13,7 @@ Fetch the closest one with GET, replace everything marked `EDIT`, keep the struc
 | compare | options side by side: products, listings, plans | {{BASE_URL}}/recipes/compare.html |
 | chart | one chart (bar, line, pie) from data | {{BASE_URL}}/recipes/chart.html |
 | table | many rows to search and sort | {{BASE_URL}}/recipes/table.html |
+| live | numbers, a chart and a table a scheduled job refreshes by sending only data | {{BASE_URL}}/recipes/live.html |
 | calculator | inputs that give live results | {{BASE_URL}}/recipes/calculator.html |
 | ranking | a ranked list with bars: results, shares, budget breakdown | {{BASE_URL}}/recipes/ranking.html |
 | faq | items the reader opens to read more: FAQ, glossary, explainers | {{BASE_URL}}/recipes/faq.html |
@@ -109,7 +110,7 @@ For a page a scheduled job refreshes (a weekly report, a dashboard), two things 
   ```html
   <script>const data = JSON.parse(document.getElementById("scrawl-data")?.textContent ?? "null");</script>
   ```
-  Publish the page once, then send only the data on each run. Readers see the new data when they reload.
+  Publish the page once, then send only the data on each run. The `live` recipe is built this way. Readers see the new data when they reload.
 - **Past editions.** Publish with `"series": true` (with raw HTML, `?series=1`). Each page update then keeps the page it replaces, with its data, as an edition. The update reply's `archived` is that edition's link, and the pad links to its past editions. The last 30 editions are kept. Data updates alone do not make an edition.
 
 `private` and `series` are set at publish and cannot change later.
