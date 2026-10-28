@@ -40,8 +40,8 @@ function measure(minText: number, minTap: number) {
 function addBadge(logo: string, site: string) {
   const badge = document.createElement("div");
   badge.style.cssText =
-    "all:initial;position:fixed;right:28px;bottom:28px;z-index:2147483647;display:flex;align-items:center;gap:10px;padding:10px 18px 10px 12px;border-radius:999px;" +
-    "background:#141414;color:#f4f1ea;font:600 22px/1 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.35)";
+    "all:initial;position:fixed;right:20px;bottom:20px;z-index:2147483647;display:flex;align-items:center;gap:7px;padding:7px 13px 7px 9px;border-radius:999px;" +
+    "background:#141414;color:#f4f1ea;font:600 16px/1 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.35)";
   badge.innerHTML = `${logo}<span>${site}</span>`;
   document.body.appendChild(badge);
 }

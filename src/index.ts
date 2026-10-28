@@ -226,7 +226,7 @@ async function servePreview(c: Context<{ Bindings: Bindings }>, id: string) {
   const stored = await c.env.IMAGES.get(key);
   if (stored?.customMetadata?.v === String(pad.updated_at)) return new Response(stored.body, { headers: imageHeaders("image/jpeg") });
   const site = c.env.PAD_DOMAIN || new URL(c.req.url).host;
-  const shot = c.env.BROWSER && (await capturePreview(c.env.BROWSER, padUrl(c, id), scrawlLogo(28), site).catch((err) => void console.error(err)));
+  const shot = c.env.BROWSER && (await capturePreview(c.env.BROWSER, padUrl(c, id), scrawlLogo(20), site).catch((err) => void console.error(err)));
   if (shot) {
     await c.env.IMAGES.put(key, shot, { httpMetadata: { contentType: "image/jpeg" }, customMetadata: { v: String(pad.updated_at) } });
     await c.env.DB.prepare("INSERT OR REPLACE INTO images (pad_id, name, bytes, created_at) VALUES (?, ?, ?, ?)").bind(id, PREVIEW, shot.length, Date.now()).run();
