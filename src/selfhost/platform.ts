@@ -22,14 +22,14 @@ class Statement {
   }
 
   async all<T>() {
+    return this.allNow<T>();
+  }
+
+  allNow<T>() {
     return { results: this.db.query(this.sql).all(...this.args) as T[], success: true, meta: {} };
   }
 
   async run() {
-    return this.runNow();
-  }
-
-  runNow() {
     const { changes } = this.db.query(this.sql).run(...this.args);
     return { success: true, meta: { changes } };
   }
@@ -47,9 +47,9 @@ export class SqliteD1 {
     return new Statement(this.db, sql);
   }
 
-  // D1 runs a batch as one transaction.
+  // D1 runs a batch as one transaction and returns each statement's rows, such as those of RETURNING.
   async batch(statements: Statement[]) {
-    return this.db.transaction(() => statements.map((s) => s.runNow()))();
+    return this.db.transaction(() => statements.map((s) => s.allNow()))();
   }
 
   // The same migrations/ files wrangler applies to D1, each applied once.
