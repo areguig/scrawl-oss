@@ -74,13 +74,15 @@ or `content-type: application/json` with `{"html": "<the whole page>", "title": 
 
 Pads are deleted 30 days after their last update. If the user wants to keep the page longer, send `expires_in_days` up to 365 (with raw HTML, add `?expires_in_days=90` to the URL). Each update starts the period again.
 
+For a page only the user should open (a security report, anything not for strangers), send `"private": true` (with raw HTML, add `?private=1` to the URL). The reply's `url` then carries a key (`?k=...`): share that whole link. Without the key the pad answers 404, as if it did not exist. A pad is private or public from its publish on: to change it, publish a new pad. If the link leaks, delete the pad and publish again.
+
 With a shell: `curl -sS -X POST --data-binary @pad.html -H 'content-type: text/html' {{BASE_URL}}/api/publish`
 
 To send the file with a shell, write it to a temp file first (any writable path, such as your session scratch folder) and send it with `--data-binary @file`. That is the safest way. With a fetch tool, send the JSON form.
 
 The reply is JSON:
 ```
-{"id","url","edit_key","expires_at","warnings":[...],"advice":[...],"update":"...","delete":"..."}
+{"id","url","edit_key","expires_at","private"?,"warnings":[...],"advice":[...],"update":"...","delete":"..."}
 ```
 1. Read `warnings`: each one breaks the page for readers. Fix every one, then update the pad (below). `advice` holds quality hints: follow them when they fit the page.
 2. Show `url` to the user, and when it expires (`expires_at`).
@@ -109,6 +111,7 @@ Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
 | Status | Code | What to do |
 |---|---|---|
 | 400 | `empty_pad`, `bad_json`, `bad_expiry` | send the whole HTML, or valid JSON `{"html": "..."}` |
+| 400 | `private_at_publish` | leave out `private` when updating, or publish a new pad |
 | 403 | `bad_edit_key` | use the `edit_key` from the publish reply |
 | 404 | `not_found` | check the id, or publish a new pad |
 | 413 | `pad_too_large`, `image_too_large` | page over 1 MB or image over 2 MB: cut content, upload a smaller image |
@@ -135,7 +138,7 @@ An error that is not JSON (an HTML page, often a 403) comes from a firewall betw
 - Mobile first. Keep `<meta name="viewport" content="width=device-width, initial-scale=1">`. No fixed widths over 480px. Recipes are already right on a phone.
 - Add a `<title>`.
 - Scripts only from: cdn.jsdelivr.net, cdnjs.cloudflare.com, unpkg.com, cdn.tailwindcss.com, esm.sh. Pin a version (`chart.js@4.4.0`). Stylesheets, fonts and images may come from any https URL.
-- Pads are public to anyone with the link and cannot be listed. No secrets, no personal data.
+- Pads are public to anyone with the link and cannot be listed. No secrets, no personal data. A private pad needs the key in its link, but anyone holding that link can read it: it is not a login.
 - Forms cannot submit anywhere: use JavaScript. `fetch` to https URLs works.
 - Saving is per reader and per device: `$persist` or `localStorage` keep values when that reader comes back on the same browser. Nothing is shared between readers, and the pad's author cannot see it. Never ask readers for secrets or personal data.
 - Viewers cannot change a pad. Only the holder of the `edit_key` can update or delete it, so keep it for the conversation.

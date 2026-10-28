@@ -9,6 +9,7 @@ function randomString(length: number, alphabet: string): string {
 
 export const newId = () => randomString(8, ID_ALPHABET);
 export const newEditKey = () => randomString(32, ID_ALPHABET);
+export const newLinkKey = () => randomString(24, ID_ALPHABET);
 
 export async function hashKey(key: string | BufferSource): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", typeof key === "string" ? new TextEncoder().encode(key) : key);
@@ -52,9 +53,9 @@ export function extractDescription(html: string): string {
 }
 
 // A tab icon and a link preview card; each tag the pad sets itself is left to the pad.
-function brandTags(html: string, image: string): string {
+function brandTags(html: string, image: string, describe: boolean): string {
   const icon = /<link[^>]+rel=["'][^"']*icon/i.test(html) ? "" : `<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="apple-touch-icon" href="/apple-touch-icon.png">`;
-  const description = extractDescription(html);
+  const description = describe ? extractDescription(html) : "";
   const tags: [string, string][] = [
     ["og:site_name", "Scrawl"],
     ["og:type", "website"],
@@ -86,12 +87,12 @@ function appendToBody(html: string, snippet: string): string {
   return end >= 0 ? html.slice(0, end) + snippet + html.slice(end) : html + snippet;
 }
 
-// image is the link preview picture, the Scrawl card by default.
-type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string };
+// image is the link preview picture, the Scrawl card by default; describe is false for private pads, whose previews show no content.
+type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string; describe?: boolean };
 
 // An isolated pad has its own origin, so real localStorage works and needs no shim.
-export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png` }: PadContext): string {
-  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, image) + BASE_CSS + (isolated ? "" : STORAGE_SHIM));
+export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png`, describe = true }: PadContext): string {
+  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, image, describe) + BASE_CSS + (isolated ? "" : STORAGE_SHIM));
   return appendToBody(head, madeWith(home, padId));
 }
 

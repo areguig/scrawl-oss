@@ -144,6 +144,72 @@ describe("reports", () => {
   });
 });
 
+describe("private pads", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  type Published = { id: string; url: string; edit_key: string; private?: boolean };
+  const publishPrivate = async (html: string) =>
+    (await publish(JSON.stringify({ html, private: true }), { "content-type": "application/json" })).json<Published>();
+
+  it("serves a private pad only with the key its url carries, and answers 404 like a missing pad otherwise", async () => {
+    const { id, url, private: isPrivate } = await publishPrivate("<title>CVE</title><p>Secret details here</p>");
+    expect(isPrivate).toBe(true);
+    expect(url).toMatch(new RegExp(`^https://scrawl.test/p/${id}\\?k=[2-9a-z]{24}$`));
+    const page = await call(new URL(url).pathname + new URL(url).search);
+    expect(page.status).toBe(200);
+    expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(page.headers.get("x-robots-tag")).toContain("noindex");
+    const missing = await call("/p/zzzzzzzz");
+    for (const res of [await call(`/p/${id}`), await call(`/p/${id}?k=wrong`)]) {
+      expect(res.status).toBe(404);
+      expect(await res.text()).toBe(await missing.clone().text());
+    }
+  });
+
+  it("hides that an expired or taken-down private pad exists from readers without the key", async () => {
+    const { id } = await publishPrivate("<title>t</title>");
+    await env.DB.prepare("UPDATE pads SET expires_at = 0 WHERE id = ?").bind(id).run();
+    expect((await call(`/p/${id}`)).status).toBe(404);
+  });
+
+  it("gives a private pad no preview picture and no description", async () => {
+    const { id, url } = await publishPrivate("<title>t</title><p>Secret details here</p>");
+    const body = await (await call(new URL(url).pathname + new URL(url).search)).text();
+    expect(body).toContain('property="og:image" content="https://scrawl.test/og.png"');
+    expect(body).not.toContain("og:description");
+    expect((await call(`/p/${id}/i/og.jpg`)).status).toBe(404);
+  });
+
+  it("serves its images without the key, since their names cannot be guessed", async () => {
+    const { id, edit_key } = await publishPrivate("<title>t</title>");
+    const res = await call(`/api/pads/${id}/images`, { method: "POST", body: PNG, headers: { "x-edit-key": edit_key } });
+    const { url } = await res.json<{ url: string }>();
+    expect((await call(new URL(url).pathname)).status).toBe(200);
+  });
+
+  it("keeps the key through updates and refuses to switch a pad between private and public", async () => {
+    const { id, url, edit_key } = await publishPrivate("<title>t</title>");
+    const put = (body: string, type = "text/html") => call(`/api/pads/${id}`, { method: "PUT", body, headers: { "x-edit-key": edit_key, "content-type": type } });
+    expect((await (await put("<p>v2</p>")).json<{ url: string }>()).url).toBe(url);
+    expect((await (await put(JSON.stringify({ html: "<p>v3</p>", private: false }), "application/json")).json<{ code: string }>()).code).toBe("private_at_publish");
+    const pub = await (await publish("<title>t</title>")).json<Published>();
+    const res = await call(`/api/pads/${pub.id}?private=1`, { method: "PUT", body: "<p>x</p>", headers: { "x-edit-key": pub.edit_key } });
+    expect(res.status).toBe(400);
+    expect(pub.private).toBeUndefined();
+  });
+
+  it("takes ?private=1 with raw HTML, and keeps the key when redirecting to the pad subdomain", async () => {
+    const res = await exports.default.fetch(
+      new Request("https://scrawls.dev/api/publish?private=1", { method: "POST", body: "<title>t</title>", headers: { "content-type": "text/html", "cf-connecting-ip": `10.8.0.${++nextIp}` } }),
+    );
+    const { id, url } = await res.json<Published>();
+    expect(url).toMatch(new RegExp(`^https://${id}\\.scrawls\\.dev/\\?k=[2-9a-z]{24}$`));
+    expect((await exports.default.fetch(new Request(url))).status).toBe(200);
+    expect((await exports.default.fetch(new Request(`https://${id}.scrawls.dev/`))).status).toBe(404);
+    const old = await exports.default.fetch(new Request(`https://scrawls.dev/p/${id}${new URL(url).search}`, { redirect: "manual" }));
+    expect(old.headers.get("location")).toBe(url);
+  });
+});
+
 describe("expiry", () => {
   const DAY = 86_400_000;
   const daysLeft = (iso: string) => Math.round((Date.parse(iso) - Date.now()) / DAY);

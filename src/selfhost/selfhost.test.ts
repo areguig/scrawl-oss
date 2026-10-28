@@ -34,6 +34,15 @@ describe("self-hosted Scrawl", () => {
     expect((await call(url)).status).toBe(404);
   });
 
+  it("serves a private pad only with its key", async () => {
+    const { call } = instance();
+    const res = await call("http://pads.test/api/publish?private=1", { method: "POST", body: "<title>t</title>", headers: { "content-type": "text/html", "x-forwarded-for": `10.1.0.${++nextIp}` } });
+    const { id, url } = (await res.json()) as { id: string; url: string };
+    expect(url).toStartWith(`http://pads.test/p/${id}?k=`);
+    expect((await call(url)).status).toBe(200);
+    expect((await call(`http://pads.test/p/${id}`)).status).toBe(404);
+  });
+
   it("answers the health check", async () => {
     const { call } = instance();
     expect(await (await call("http://pads.test/health")).json()).toEqual({ ok: true });

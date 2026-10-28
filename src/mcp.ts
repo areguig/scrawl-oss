@@ -39,7 +39,10 @@ function scrawlServer(call: Call): McpServer {
 
   server.registerTool(
     "publish_pad",
-    { description: "Publish an HTML page and get its link, plus the id and edit_key needed to change it. Fix every returned warning with update_pad.", inputSchema: page },
+    {
+      description: "Publish an HTML page and get its link, plus the id and edit_key needed to change it. Fix every returned warning with update_pad.",
+      inputSchema: { ...page, private: z.boolean().optional().describe("Only readers holding the returned url (it carries a key) can open the pad; anyone else gets 404. Set at publish, cannot change later.") },
+    },
     async (body) => textResult(await call("/api/publish", { method: "POST", headers: json, body: JSON.stringify(body) })),
   );
 

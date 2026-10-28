@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { capturePreview, checkPad } from "./check";
 import { handleMcp } from "./mcp";
 import { deleteImageObjects, IMAGE_NAME, imageHeaders, imageTypeOf } from "./images";
-import { alpineIssues, extractTitle, hashKey, lintPad, newEditKey, newId, padHeaders, preparePad, scrawlLogo, type Issue } from "./pad";
+import { alpineIssues, extractTitle, hashKey, lintPad, newEditKey, newId, newLinkKey, padHeaders, preparePad, scrawlLogo, type Issue } from "./pad";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -62,10 +62,10 @@ const lintReply = (issues: Issue[]) => ({ warnings: messages(issues, "fix"), adv
 // Every API error is JSON with a stable code, so an agent can tell it from a proxy or firewall page.
 const fail = (status: number, code: string, error: string) => Response.json({ error, code }, { status });
 
-type PadBody = { html: string; title?: string; ttlDays?: number; images: Map<string, Uint8Array<ArrayBuffer>> };
-type PadFields = { html: unknown; title?: unknown; expires_in_days?: unknown; images: Map<string, Uint8Array<ArrayBuffer>> };
+type PadBody = { html: string; title?: string; ttlDays?: number; isPrivate?: boolean; images: Map<string, Uint8Array<ArrayBuffer>> };
+type PadFields = { html: unknown; title?: unknown; expires_in_days?: unknown; private?: unknown; images: Map<string, Uint8Array<ArrayBuffer>> };
 
-const BAD_JSON = 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number, "images"?: {"<file name>": "<base64>"}}';
+const BAD_JSON = 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number, "private"?: boolean, "images"?: {"<file name>": "<base64>"}}';
 const fromBase64 = (text: string) => Uint8Array.from(atob(text), (ch) => ch.charCodeAt(0));
 
 // A pad comes as raw HTML, as JSON, or as a multipart form whose file parts are the images the page refers to by file name.
@@ -81,7 +81,7 @@ async function readFields(req: Request): Promise<PadFields | Response> {
       if (name === "html") html = await value.text();
       else images.set(value.name || name, new Uint8Array(await value.arrayBuffer()));
     }
-    return { html, title: form.get("title") ?? undefined, expires_in_days: form.get("expires_in_days") ?? undefined, images };
+    return { html, title: form.get("title") ?? undefined, expires_in_days: form.get("expires_in_days") ?? undefined, private: form.get("private") ?? undefined, images };
   }
   const raw = await req.text();
   if (!type.includes("application/json")) return { html: raw, images: new Map() };
@@ -93,7 +93,7 @@ async function readFields(req: Request): Promise<PadFields | Response> {
   }
 }
 
-// expires_in_days comes from the body, or from the query string when the body is raw HTML.
+// expires_in_days and private come from the body, or from the query string when the body is raw HTML.
 async function readPad(req: Request, env: Bindings): Promise<PadBody | Response> {
   const maxBytes = Number(env.MAX_PAD_BYTES);
   const maxRequest = maxBytes + Number(env.IMAGE_MAX_BYTES) * Number(env.IMAGE_MAX_PER_PAD) * 2;
@@ -110,12 +110,14 @@ async function readPad(req: Request, env: Bindings): Promise<PadBody | Response>
   if (ttlDays !== undefined && !(Number.isInteger(ttlDays) && ttlDays >= 1 && ttlDays <= maxTtlDays)) {
     return fail(400, "bad_expiry", `expires_in_days must be a whole number from 1 to ${maxTtlDays}`);
   }
+  const flag = fields.private ?? new URL(req.url).searchParams.get("private") ?? undefined;
+  const isPrivate = flag === undefined ? undefined : flag === true || flag === "1" || flag === "true";
   if (!html.trim()) return fail(400, "empty_pad", "empty pad");
   // Pads are public and anonymous: a password field is the shape of a phishing page.
   if (/<input\b[^>]*\btype\s*=\s*["']?password/i.test(html)) {
     return fail(422, "password_field", "Pads cannot ask for passwords. Remove the password field.");
   }
-  return { html, title, ttlDays, images };
+  return { html, title, ttlDays, isPrivate, images };
 }
 
 // The link preview picture is kept with the pad's images so it is deleted with them, under a name no upload can have.
@@ -138,19 +140,27 @@ const publicOrigin = (c: Context<{ Bindings: Bindings }>) => new URL(c.req.url).
 const clientIp = (c: Context<{ Bindings: Bindings }>) =>
   c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0].trim() ?? c.req.header("x-real-ip") ?? "unknown";
 
-function padUrl(c: Context<{ Bindings: Bindings }>, id: string): string {
-  return onPadDomain(c) ? `https://${id}.${c.env.PAD_DOMAIN}/` : `${publicOrigin(c)}/p/${id}`;
+// A private pad's link carries its key, without which the pad does not exist.
+function padUrl(c: Context<{ Bindings: Bindings }>, id: string, linkKey?: string | null): string {
+  const url = onPadDomain(c) ? `https://${id}.${c.env.PAD_DOMAIN}/` : `${publicOrigin(c)}/p/${id}`;
+  return linkKey ? `${url}?k=${encodeURIComponent(linkKey)}` : url;
 }
 
 const padImageUrl = (c: Context<{ Bindings: Bindings }>, id: string, name: string) =>
   onPadDomain(c) ? `https://${id}.${c.env.PAD_DOMAIN}/i/${name}` : `${publicOrigin(c)}/p/${id}/i/${name}`;
 
+const sameKey = async (given: string | undefined, expected: string) => !!given && (await hashKey(given)) === (await hashKey(expected));
+
+type LivePad = { html: string; updated_at: number; link_key: string | null };
+
 // A pad and its images are served only while it exists, has not expired and was not taken down.
-async function livePad(c: Context<{ Bindings: Bindings }>, id: string): Promise<{ html: string; updated_at: number } | Response> {
-  const row = await c.env.DB.prepare("SELECT html, updated_at, hidden_at, expires_at FROM pads WHERE id = ?")
+// Images skip the link key: their names are unguessable, and the page that embeds them already has it.
+async function livePad(c: Context<{ Bindings: Bindings }>, id: string, checkLinkKey = true): Promise<LivePad | Response> {
+  const row = await c.env.DB.prepare("SELECT html, updated_at, hidden_at, expires_at, link_key FROM pads WHERE id = ?")
     .bind(id)
-    .first<{ html: string; updated_at: number; hidden_at: number | null; expires_at: number }>();
-  if (!row) return c.text("Pad not found", 404);
+    .first<LivePad & { hidden_at: number | null; expires_at: number }>();
+  // A wrong link key looks like a missing pad, before any other answer could tell that it exists.
+  if (!row || (checkLinkKey && row.link_key && !(await sameKey(c.req.query("k"), row.link_key)))) return c.text("Pad not found", 404);
   // The daily cleanup can lag a day behind, so an expired pad is never served.
   if (row.expires_at < Date.now()) return c.text("This page expired.", 410);
   if (row.hidden_at) return c.text("This pad was removed after reports from readers.", 410);
@@ -161,15 +171,15 @@ async function servePad(c: Context<{ Bindings: Bindings }>, id: string, isolated
   const row = await livePad(c, id);
   if (row instanceof Response) return row;
   const home = isolated ? `https://${c.env.PAD_DOMAIN}` : publicOrigin(c);
-  // Versioned by the update, so link previews cached by chat apps refresh when the pad changes.
-  const image = `${padImageUrl(c, id, PREVIEW)}?v=${row.updated_at}`;
-  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image });
+  // Versioned by the update, so link previews cached by chat apps refresh when the pad changes; private pads get the Scrawl card.
+  const image = row.link_key ? undefined : `${padImageUrl(c, id, PREVIEW)}?v=${row.updated_at}`;
+  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key });
   return new Response(html, { headers: padHeaders(c.env.CDN_ALLOWLIST, isolated) });
 }
 
 async function serveImage(c: Context<{ Bindings: Bindings }>, id: string, name: string) {
   if (!IMAGE_NAME.test(name)) return c.text("Not found", 404);
-  const pad = await livePad(c, id);
+  const pad = await livePad(c, id, false);
   if (pad instanceof Response) return pad;
   const object = await c.env.IMAGES.get(`${id}/${name}`);
   if (!object) return c.text("Not found", 404);
@@ -178,8 +188,10 @@ async function serveImage(c: Context<{ Bindings: Bindings }>, id: string, name: 
 
 // The link preview picture: the top of the pad, taken when first asked for after each update.
 async function servePreview(c: Context<{ Bindings: Bindings }>, id: string) {
-  const pad = await livePad(c, id);
+  // The preview has a fixed name, so a private pad never gets one.
+  const pad = await livePad(c, id, false);
   if (pad instanceof Response) return pad;
+  if (pad.link_key) return c.text("Not found", 404);
   const key = `${id}/${PREVIEW}`;
   const stored = await c.env.IMAGES.get(key);
   if (stored?.customMetadata?.v === String(pad.updated_at)) return new Response(stored.body, { headers: imageHeaders("image/jpeg") });
@@ -283,13 +295,14 @@ app.post("/api/publish", async (c) => {
   if (attached instanceof Response) return attached;
   const { html, images } = attached;
   const editKey = newEditKey();
+  const linkKey = body.isPrivate ? newLinkKey() : null;
   const now = Date.now();
   const ttlDays = body.ttlDays ?? Number(c.env.PAD_TTL_DAYS);
   const expiresAt = now + ttlDays * DAY_MS;
   await c.env.DB.prepare(
-    "INSERT INTO pads (id, title, html, edit_key_hash, ip_hash, created_at, updated_at, ttl_days, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO pads (id, title, html, edit_key_hash, ip_hash, created_at, updated_at, ttl_days, expires_at, link_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   )
-    .bind(id, body.title ?? extractTitle(html), html, await hashKey(editKey), ipHash, now, now, ttlDays, expiresAt)
+    .bind(id, body.title ?? extractTitle(html), html, await hashKey(editKey), ipHash, now, now, ttlDays, expiresAt, linkKey)
     .run();
   const origin = publicOrigin(c);
   const issues = await lint(c, html);
@@ -297,8 +310,9 @@ app.post("/api/publish", async (c) => {
   return c.json(
     {
       id,
-      url: padUrl(c, id),
+      url: padUrl(c, id, linkKey),
       edit_key: editKey,
+      ...(linkKey ? { private: true } : {}),
       expires_at: new Date(expiresAt).toISOString(),
       ...lintReply(issues),
       ...(body.images.size ? { images } : {}),
@@ -316,6 +330,9 @@ async function authorised(c: { env: Bindings; req: { header(n: string): string |
   return key && (await hashKey(key)) === row.edit_key_hash ? true : (403 as const);
 }
 
+const linkKeyOf = async (env: Bindings, id: string) =>
+  (await env.DB.prepare("SELECT link_key FROM pads WHERE id = ?").bind(id).first<{ link_key: string | null }>())?.link_key ?? null;
+
 const authFailure = (status: 403 | 404) => (status === 404 ? fail(404, "not_found", "not found") : fail(403, "bad_edit_key", "bad edit key"));
 
 app.put("/api/pads/:id", async (c) => {
@@ -324,6 +341,9 @@ app.put("/api/pads/:id", async (c) => {
   if (auth !== true) return authFailure(auth);
   const body = await readPad(c.req.raw, c.env);
   if (body instanceof Response) return body;
+  const linkKey = await linkKeyOf(c.env, id);
+  // Refused rather than ignored, so an agent never believes a public pad became private.
+  if (body.isPrivate !== undefined && body.isPrivate !== !!linkKey) return fail(400, "private_at_publish", "a pad is private or public from its publish on: publish a new pad instead");
   const attached = await attachImages(c, id, body);
   if (attached instanceof Response) return attached;
   const { html, images } = attached;
@@ -334,7 +354,7 @@ app.put("/api/pads/:id", async (c) => {
     .first<{ expires_at: number }>();
   const issues = await lint(c, html);
   await logStats(c, "updated", issues);
-  return c.json({ id, url: padUrl(c, id), expires_at: new Date(row!.expires_at).toISOString(), ...lintReply(issues), ...(body.images.size ? { images } : {}) });
+  return c.json({ id, url: padUrl(c, id, linkKey), expires_at: new Date(row!.expires_at).toISOString(), ...lintReply(issues), ...(body.images.size ? { images } : {}) });
 });
 
 app.delete("/api/pads/:id", async (c) => {
@@ -366,7 +386,7 @@ app.post("/api/pads/:id/check", async (c) => {
   if (auth !== true) return authFailure(auth);
   if (!c.env.BROWSER) return fail(501, "check_unavailable", "this Scrawl has no browser to check pads with");
   const withScreenshot = c.req.query("screenshot") === "1";
-  const report = await checkPad(c.env.BROWSER, padUrl(c, id), withScreenshot).catch((err) => {
+  const report = await checkPad(c.env.BROWSER, padUrl(c, id, await linkKeyOf(c.env, id)), withScreenshot).catch((err) => {
     console.error(err);
     return fail(503, "check_busy", "no browser free to check the pad: try again in a minute");
   });
@@ -414,7 +434,7 @@ app.get("/p/:id/i/:name", (c) => serveImage(c, c.req.param("id"), c.req.param("n
 
 app.get("/p/:id", async (c) => {
   const id = c.req.param("id");
-  if (onPadDomain(c) && /^[2-9a-z]{8}$/.test(id)) return c.redirect(padUrl(c, id), 301);
+  if (onPadDomain(c) && /^[2-9a-z]{8}$/.test(id)) return c.redirect(padUrl(c, id, c.req.query("k")), 301);
   return servePad(c, id, false);
 });
 
