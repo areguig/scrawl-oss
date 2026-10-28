@@ -41,7 +41,11 @@ function scrawlServer(call: Call): McpServer {
     "publish_pad",
     {
       description: "Publish an HTML page and get its link, plus the id and edit_key needed to change it. Fix every returned warning with update_pad.",
-      inputSchema: { ...page, private: z.boolean().optional().describe("Only readers holding the returned url (it carries a key) can open the pad; anyone else gets 404. Set at publish, cannot change later.") },
+      inputSchema: {
+        ...page,
+        private: z.boolean().optional().describe("Only readers holding the returned url (it carries a key) can open the pad; anyone else gets 404. Set at publish, cannot change later."),
+        series: z.boolean().optional().describe("Each update_pad keeps the page it replaces as a past edition, linked from the pad. For pages a scheduled job updates. Set at publish, cannot change later."),
+      },
     },
     async (body) => textResult(await call("/api/publish", { method: "POST", headers: json, body: JSON.stringify(body) })),
   );
@@ -50,6 +54,16 @@ function scrawlServer(call: Call): McpServer {
     "update_pad",
     { description: "Replace the page of an existing pad, keeping its link.", inputSchema: { ...pad, ...page } },
     async ({ id, edit_key, ...body }) => textResult(await call(`/api/pads/${encodeURIComponent(id)}`, { method: "PUT", headers: { ...json, "x-edit-key": edit_key }, body: JSON.stringify(body) })),
+  );
+
+  server.registerTool(
+    "update_data",
+    {
+      description: 'Replace the JSON data of a pad without sending its page again. The page reads it with JSON.parse(document.getElementById("scrawl-data").textContent).',
+      inputSchema: { ...pad, data: z.unknown().describe("Any JSON value, up to 256 KB") },
+    },
+    async ({ id, edit_key, data }) =>
+      textResult(await call(`/api/pads/${encodeURIComponent(id)}/data`, { method: "PUT", headers: { ...json, "x-edit-key": edit_key }, body: JSON.stringify(data) })),
   );
 
   server.registerTool(

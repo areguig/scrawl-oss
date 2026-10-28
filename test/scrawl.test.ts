@@ -210,6 +210,103 @@ describe("private pads", () => {
   });
 });
 
+describe("data and series", () => {
+  type Published = { id: string; url: string; edit_key: string; series?: boolean };
+  const publishJson = async (body: object) => (await publish(JSON.stringify(body), { "content-type": "application/json" })).json<Published>();
+  const putData = (id: string, key: string, body: string) => call(`/api/pads/${id}/data`, { method: "PUT", body, headers: { "x-edit-key": key, "content-type": "application/json" } });
+  const putPage = (id: string, key: string, html: string) => call(`/api/pads/${id}`, { method: "PUT", body: html, headers: { "x-edit-key": key } });
+  const page = async (url: string) => (await call(new URL(url).pathname + new URL(url).search)).text();
+
+  it("serves the pad's data inline, escaped so it cannot close the script", async () => {
+    const { id, url, edit_key } = await publishJson({ html: "<title>t</title>" });
+    expect(await page(url)).not.toContain("scrawl-data");
+    const res = await putData(id, edit_key, JSON.stringify({ n: 3, note: "</script><b>x" }));
+    expect(res.status).toBe(200);
+    const body = await page(url);
+    const json = body.match(/<script type="application\/json" id="scrawl-data">(.*?)<\/script>/)![1];
+    expect(json).not.toContain("<");
+    expect(JSON.parse(json)).toEqual({ n: 3, note: "</script><b>x" });
+  });
+
+  it("needs the edit key and valid JSON under the size cap, and bumps the preview version", async () => {
+    const { id, edit_key } = await publishJson({ html: "<title>t</title>" });
+    expect((await putData(id, "wrong", "{}")).status).toBe(403);
+    expect((await (await putData(id, edit_key, "{nope")).json<{ code: string }>()).code).toBe("bad_data");
+    expect((await putData(id, edit_key, JSON.stringify("x".repeat(256_001)))).status).toBe(413);
+    const before = (await env.DB.prepare("SELECT updated_at FROM pads WHERE id = ?").bind(id).first<{ updated_at: number }>())!.updated_at;
+    await new Promise((done) => setTimeout(done, 5));
+    await putData(id, edit_key, "[1]");
+    const after = (await env.DB.prepare("SELECT updated_at FROM pads WHERE id = ?").bind(id).first<{ updated_at: number }>())!.updated_at;
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it("keeps each replaced page of a series pad as an edition with the data it had, linked from the pad", async () => {
+    const { id, url, edit_key, series } = await publishJson({ html: "<title>Week 1</title><p>one</p>", series: true });
+    expect(series).toBe(true);
+    await putData(id, edit_key, '{"week":1}');
+    const res = await putPage(id, edit_key, "<title>Week 2</title><p>two</p>");
+    const { archived } = await res.json<{ archived: string }>();
+    expect(archived).toBe(`https://scrawl.test/p/${id}/e/1`);
+    const old = await page(archived);
+    expect(old).toContain("<p>one</p>");
+    expect(old).toContain('{"week":1}');
+    expect(old).toContain(`href="https://scrawl.test/p/${id}"`);
+    expect(await page(url)).toContain(`href="https://scrawl.test/p/${id}/e"`);
+    const list = await page(`${url}/e`);
+    expect(list).toContain(`href="https://scrawl.test/p/${id}/e/1">Edition 1</a> · Week 1`);
+    expect(list).toContain("Latest</a> · Week 2");
+  });
+
+  it("keeps only the last 30 editions, and deletes them with the pad", async () => {
+    const { id, edit_key } = await publishJson({ html: "<title>t</title>", series: true });
+    for (let i = 0; i < 32; i++) await putPage(id, edit_key, `<title>v${i}</title>`);
+    const { n, low } = (await env.DB.prepare("SELECT COUNT(*) AS n, MIN(n) AS low FROM editions WHERE pad_id = ?").bind(id).first<{ n: number; low: number }>())!;
+    expect([n, low]).toEqual([30, 3]);
+    expect((await call(`/p/${id}/e/2`)).status).toBe(404);
+    await call(`/api/pads/${id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } });
+    expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM editions WHERE pad_id = ?").bind(id).first<{ n: number }>())!.n).toBe(0);
+  });
+
+  it("keeps no editions for other pads, and refuses to switch series on update", async () => {
+    const { id, url, edit_key } = await publishJson({ html: "<title>t</title>" });
+    const res = await putPage(id, edit_key, "<title>v2</title>");
+    expect(await res.json()).not.toHaveProperty("archived");
+    expect(await page(url)).not.toContain("Past editions");
+    expect((await call(`/p/${id}/e`)).status).toBe(404);
+    const flip = await call(`/api/pads/${id}?series=1`, { method: "PUT", body: "<p>x</p>", headers: { "x-edit-key": edit_key } });
+    expect((await flip.json<{ code: string }>()).code).toBe("series_at_publish");
+  });
+
+  it("puts a private series pad's key on every edition link, and hides its editions without it", async () => {
+    const { id, url, edit_key } = await publishJson({ html: "<title>t</title>", series: true, private: true });
+    const key = new URL(url).search;
+    const { archived } = await (await putPage(id, edit_key, "<title>v2</title>")).json<{ archived: string }>();
+    expect(archived).toBe(`https://scrawl.test/p/${id}/e/1${key}`);
+    expect((await call(`/p/${id}/e/1`)).status).toBe(404);
+    expect((await call(`/p/${id}/e`)).status).toBe(404);
+    expect(await page(`https://scrawl.test/p/${id}/e${key}`)).toContain(`/e/1${key}`);
+  });
+
+  it("serves editions on the pad subdomain", async () => {
+    const at = (url: string, init?: RequestInit) => exports.default.fetch(new Request(url, init));
+    const { id, edit_key } = await (
+      await at("https://scrawls.dev/api/publish?series=1", { method: "POST", body: "<title>t</title><p>one</p>", headers: { "content-type": "text/html", "cf-connecting-ip": `10.7.0.${++nextIp}` } })
+    ).json<Published>();
+    const { archived } = await (await at(`https://scrawls.dev/api/pads/${id}`, { method: "PUT", body: "<p>two</p>", headers: { "x-edit-key": edit_key } })).json<{ archived: string }>();
+    expect(archived).toBe(`https://${id}.scrawls.dev/e/1`);
+    expect(await (await at(archived)).text()).toContain("<p>one</p>");
+    expect((await at(`https://${id}.scrawls.dev/e`)).status).toBe(200);
+  });
+
+  it("cleans up the editions of pads deleted by hand", async () => {
+    const { id, edit_key } = await publishJson({ html: "<title>t</title>", series: true });
+    await putPage(id, edit_key, "<title>v2</title>");
+    await env.DB.prepare("DELETE FROM pads WHERE id = ?").bind(id).run();
+    await deleteExpired(env);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM editions WHERE pad_id = ?").bind(id).first<{ n: number }>())!.n).toBe(0);
+  });
+});
+
 describe("expiry", () => {
   const DAY = 86_400_000;
   const daysLeft = (iso: string) => Math.round((Date.parse(iso) - Date.now()) / DAY);
@@ -633,7 +730,14 @@ describe("mcp", () => {
     const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.instructions).toContain("get_guide");
     const names = (await rpc("tools/list")).tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "check_pad"]);
+    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "update_data", "check_pad"]);
+  });
+
+  it("updates a pad's data", async () => {
+    const { body } = await tool("publish_pad", { html: "<title>t</title>" });
+    const res = await tool("update_data", { id: body.id, edit_key: body.edit_key, data: { a: 1 } });
+    expect(res.isError).toBe(false);
+    expect(await (await call(new URL(body.url).pathname)).text()).toContain('{"a":1}');
   });
 
   it("publishes and updates a pad through the HTTP API", async () => {

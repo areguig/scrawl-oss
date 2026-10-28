@@ -43,6 +43,16 @@ describe("self-hosted Scrawl", () => {
     expect((await call(`http://pads.test/p/${id}`)).status).toBe(404);
   });
 
+  it("keeps editions of a series pad", async () => {
+    const { call } = instance();
+    const res = await call("http://pads.test/api/publish?series=1", { method: "POST", body: "<title>t</title><p>one</p>", headers: { "content-type": "text/html", "x-forwarded-for": `10.1.0.${++nextIp}` } });
+    const { id, edit_key } = (await res.json()) as { id: string; edit_key: string };
+    const put = await call(`http://pads.test/api/pads/${id}`, { method: "PUT", body: "<p>two</p>", headers: { "x-edit-key": edit_key } });
+    const { archived } = (await put.json()) as { archived: string };
+    expect(archived).toBe(`http://pads.test/p/${id}/e/1`);
+    expect(await (await call(archived)).text()).toContain("<p>one</p>");
+  });
+
   it("answers the health check", async () => {
     const { call } = instance();
     expect(await (await call("http://pads.test/health")).json()).toEqual({ ok: true });

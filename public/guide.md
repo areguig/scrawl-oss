@@ -82,7 +82,7 @@ To send the file with a shell, write it to a temp file first (any writable path,
 
 The reply is JSON:
 ```
-{"id","url","edit_key","expires_at","private"?,"warnings":[...],"advice":[...],"update":"...","delete":"..."}
+{"id","url","edit_key","expires_at","private"?,"series"?,"warnings":[...],"advice":[...],"update":"...","delete":"..."}
 ```
 1. Read `warnings`: each one breaks the page for readers. Fix every one, then update the pad (below). `advice` holds quality hints: follow them when they fit the page.
 2. Show `url` to the user, and when it expires (`expires_at`).
@@ -102,6 +102,18 @@ After publishing, tell the user the link and one or two sentences with the main 
 ## 3. Update the same link
 `PUT {{BASE_URL}}/api/pads/<id>` with header `x-edit-key: <edit_key>` and the new HTML as the body. Do not publish a new pad for each change.
 
+## Pages a job updates
+For a page a scheduled job refreshes (a weekly report, a dashboard), two things save work and keep history:
+
+- **Data without the page.** `PUT {{BASE_URL}}/api/pads/<id>/data` with header `x-edit-key: <edit_key>` and any JSON document (up to 256 KB) as the body. Scrawl puts it in the page, and the page reads it on load:
+  ```html
+  <script>const data = JSON.parse(document.getElementById("scrawl-data")?.textContent ?? "null");</script>
+  ```
+  Publish the page once, then send only the data on each run. Readers see the new data when they reload.
+- **Past editions.** Publish with `"series": true` (with raw HTML, `?series=1`). Each page update then keeps the page it replaces, with its data, as an edition. The update reply's `archived` is that edition's link, and the pad links to its past editions. The last 30 editions are kept. Data updates alone do not make an edition.
+
+`private` and `series` are set at publish and cannot change later.
+
 ## 4. Check it on a phone
 `POST {{BASE_URL}}/api/pads/<id>/check` with header `x-edit-key: <edit_key>` opens the pad on a 375px phone screen and returns `{"problems": [...]}`: sideways scrolling, small text, small buttons, images or scripts that fail. Fix them and update the pad. Add `?screenshot=1` to get a PNG of the whole page instead. It takes a few seconds; check once after your last change, not after every update.
 
@@ -111,10 +123,11 @@ Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
 | Status | Code | What to do |
 |---|---|---|
 | 400 | `empty_pad`, `bad_json`, `bad_expiry` | send the whole HTML, or valid JSON `{"html": "..."}` |
-| 400 | `private_at_publish` | leave out `private` when updating, or publish a new pad |
+| 400 | `private_at_publish`, `series_at_publish` | leave out `private` and `series` when updating, or publish a new pad |
+| 400 | `bad_data` | send a valid JSON document as the data |
 | 403 | `bad_edit_key` | use the `edit_key` from the publish reply |
 | 404 | `not_found` | check the id, or publish a new pad |
-| 413 | `pad_too_large`, `image_too_large` | page over 1 MB or image over 2 MB: cut content, upload a smaller image |
+| 413 | `pad_too_large`, `image_too_large`, `data_too_large` | page over 1 MB, image over 2 MB or data over 256 KB: cut content, upload a smaller image |
 | 415 | `image_type` | send the raw bytes of a JPEG, PNG, WebP or GIF |
 | 422 | `password_field`, `image_limit` | remove the password field; reuse or drop images |
 | 429 | `publish_limit` | 20 new pads per hour reached: update an existing pad with PUT |
