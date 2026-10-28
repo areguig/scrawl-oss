@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote",
-    "deploy:prod": "wrangler deploy -c wrangler.production.jsonc && wrangler d1 migrations apply DB --remote -c wrangler.production.jsonc",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "deploy:prod": "wrangler d1 migrations apply DB --remote -c wrangler.production.jsonc && wrangler deploy -c wrangler.production.jsonc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "pad:delete": "node scripts/pad-delete.mjs",
