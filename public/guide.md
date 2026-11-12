@@ -211,6 +211,8 @@ What you can use:
 - Saving per reader with `localStorage`, and the pad's JSON data for pages a job refreshes.
 - `/scrawl.js` is optional: keep it for Tailwind, daisyUI and Alpine, or leave it out and write your own CSS.
 
+Full-screen apps and games: Scrawl adds its footer (a link home, Comment, Report) at the end of `<body>`, in the flow. Put your app in an element with `height: 100svh` and keep `overflow: hidden` off `html` and `body`, so the footer sits below the app instead of on top of it. Scroll locking for touch play belongs on the app element (`touch-action: none`).
+
 Make it hold up: touch and mouse both work, motion respects `prefers-reduced-motion`, canvases cap `devicePixelRatio` at 2 and animations pause when hidden, so a phone stays cool. Then check it three ways with screenshots and look at them: phone, `?desktop=1` and `?dark=1`.
 
 ## Rules

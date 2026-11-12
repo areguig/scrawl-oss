@@ -19,7 +19,7 @@ function measure(minText: number, minTap: number) {
     const box = el.getBoundingClientRect();
     return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden";
   });
-  const name = (el: Element) => `<${el.tagName.toLowerCase()}> "${(el.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 40)}"`;
+  const name = (el: Element) => `<${el.tagName.toLowerCase()}> "${((el.textContent ?? "").trim() || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").slice(0, 40)}"`;
   const sample = (els: Element[], text: (el: Element) => string = name) => els.slice(0, 3).map(text).join(", ");
   const problems: string[] = [];
 
@@ -32,6 +32,11 @@ function measure(minText: number, minTap: number) {
   if (small.length) problems.push(`${small.length} text elements under ${minText}px: ${sample(small, (el) => `${name(el)} at ${getComputedStyle(el).fontSize}`)}.`);
   const taps = shown.filter((el) => el.matches("a, button, select, summary, [role=button], input:not([type=checkbox]):not([type=radio])") && getComputedStyle(el).display !== "inline" && el.getBoundingClientRect().height < minTap);
   if (taps.length) problems.push(`${taps.length} buttons or links under ${minTap}px high, hard to tap: ${sample(taps)}.`);
+  // A full-screen page that cannot scroll leaves the footer, which sits in the flow, on top of its own controls.
+  const footerBoxes = footer ? [...footer.querySelectorAll("a")].map((a) => a.getBoundingClientRect()) : [];
+  const hits = (r: DOMRect) => footerBoxes.some((f) => r.left < f.right && f.left < r.right && r.top < f.bottom && f.top < r.bottom);
+  const covered = shown.filter((el) => el.matches("a, button, input, select, textarea, [role=button]") && hits(el.getBoundingClientRect()));
+  if (covered.length) problems.push(`The Scrawl footer sits on top of ${sample(covered)}: let the page scroll to the footer below your app (keep overflow: hidden off html and body, give your app height: 100svh).`);
   const broken = [...document.images].filter((img) => img.complete && img.naturalWidth === 0);
   if (broken.length) problems.push(`${broken.length} images do not load: ${broken.slice(0, 3).map((img) => img.src).join(", ")}.`);
   return { width, problems };
