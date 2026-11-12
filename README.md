@@ -29,7 +29,7 @@
 - **Room for strong models.** Bigger models can go past the recipes: their own design, any npm library as an ES module, WebGL, audio, workers, fonts, 3D models and data files sent with the page, file downloads, and checks at phone and desktop width, in light and dark mode.
 - **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
 - **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days. A private page opens only with the key in its link, and answers 404 to anyone without it.
-- **Ask for changes from your phone.** Each page has a Comment link. Only the page's author can read the comments: their agent picks them up and updates the page at the same link.
+- **Ask for changes from your phone.** The agent opens a review, and you tap any part of the page to pin a note. It reads the notes, updates the page at the same link, and closes the review when you are happy. Reviews close by themselves after 2 hours without a note.
 - **Made for scheduled jobs.** A job can refresh a page's JSON data without sending the page again, and a series page keeps its last 30 editions, with a feed readers can follow.
 - **Nothing to install.** Any agent that can fetch a URL can publish. Claude Code, Copilot CLI, OpenCode and others get a one-line skill, and MCP clients can add Scrawl as a remote server (`/mcp`).
 
@@ -142,7 +142,7 @@ Settings live in `vars` in `wrangler.jsonc`. When you run Scrawl with Docker or 
 
 With Docker or Bun, `DATA_DIR` (default `./data`) and `PORT` (default `8787`) set where data lives and the port.
 
-**MCP:** `/mcp` is a remote MCP server (Streamable HTTP) with tools to read the guide and recipes, publish, update and check pads, update a pad's data, and read readers' comments.
+**MCP:** `/mcp` is a remote MCP server (Streamable HTTP) with tools to read the guide and recipes, publish, update and check pads, update a pad's data, and run reviews where readers pin notes on the page.
 
 **Monitoring:** `GET /health` answers `{"ok": true}` while the database is up.
 

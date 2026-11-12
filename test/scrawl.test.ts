@@ -87,48 +87,85 @@ describe("page as data", () => {
   });
 });
 
-describe("comments", () => {
+describe("reviews", () => {
   const json = { "content-type": "application/json" };
-  const comment = (pad: string, text: string, ip = "10.9.0.1", k = "") =>
-    call(`/api/comments${k && `?k=${k}`}`, { method: "POST", body: JSON.stringify({ pad, text }), headers: { ...json, "cf-connecting-ip": ip } });
-  const read = (id: string, key: string) => call(`/api/pads/${id}/comments`, { headers: { "x-edit-key": key } });
+  const fresh = async (body: object = { html: "<title>t</title>" }) => (await publish(JSON.stringify(body), json)).json<{ id: string; url: string; edit_key: string }>();
+  const review = (id: string, key: string, open: boolean) => call(`/api/pads/${id}/review`, { method: "PUT", body: JSON.stringify({ open }), headers: { ...json, "x-edit-key": key } });
+  const note = (pad: string, text: string, ip = "10.9.0.1", k = "") =>
+    call(`/api/annotations${k && `?k=${k}`}`, { method: "POST", body: JSON.stringify({ pad, text, selector: "main > h1:nth-of-type(1)", fx: 0.5, fy: 0.2, snippet: "Title" }), headers: { ...json, "cf-connecting-ip": ip } });
+  const read = (id: string, key: string) => call(`/api/pads/${id}/annotations`, { headers: { "x-edit-key": key } });
+  const page = async (id: string, k = "") => (await call(`/p/${id}${k && `?k=${k}`}`)).text();
 
-  it("links each pad to its comment page, with a private pad's key", async () => {
-    const { id } = await (await publish("<title>t</title>")).json<{ id: string }>();
-    expect(await (await call(`/p/${id}`)).text()).toContain(`href="https://scrawl.test/comment?pad=${id}"`);
-    const priv = await (await publish(JSON.stringify({ html: "<title>t</title>", private: true }), json)).json<{ id: string; url: string }>();
-    const k = new URL(priv.url).searchParams.get("k")!;
-    expect(await (await call(`/p/${priv.id}?k=${k}`)).text()).toContain(`comment?pad=${priv.id}&amp;k=${k}`);
+  it("shows the Annotate script only while a review is open, and takes notes only then", async () => {
+    const { id, edit_key } = await fresh();
+    expect(await page(id)).not.toContain("/review.js");
+    expect((await note(id, "too early")).status).toBe(404);
+    expect((await review(id, "wrong", true)).status).toBe(403);
+    const opened = await (await review(id, edit_key, true)).json<{ open: boolean; closes_at: string }>();
+    expect(opened.open).toBe(true);
+    expect(Date.parse(opened.closes_at) - Date.now()).toBeGreaterThan(7_000_000);
+    const body = await page(id);
+    expect(body).toContain('<script src="/review.js" defer></script>');
+    expect(body).toContain(`"pad":"${id}"`);
+    expect((await note(id, "  Bigger title ")).status).toBe(201);
+    await review(id, edit_key, false);
+    expect(await page(id)).not.toContain("/review.js");
+    expect((await note(id, "too late")).status).toBe(404);
   });
 
-  it("lets readers comment, and only the edit key holder read and clear them", async () => {
-    const { id, edit_key } = await (await publish("<title>t</title>")).json<{ id: string; edit_key: string }>();
-    expect((await comment(id, "  Bigger chart please ")).status).toBe(201);
-    expect((await comment(id, "Drop row 3")).status).toBe(201);
+  it("gives the author every note with the element it points at, and readers the notes without it", async () => {
+    const { id, edit_key } = await fresh();
+    await review(id, edit_key, true);
+    await note(id, "Bigger title");
+    await note(id, "Drop row 3");
+    const pub = await (await call(`/api/annotations?pad=${id}`)).json<{ annotations: Record<string, unknown>[] }>();
+    expect(pub.annotations.map((a) => a.text)).toEqual(["Bigger title", "Drop row 3"]);
+    expect(pub.annotations[0]).not.toHaveProperty("element_text");
     expect((await read(id, "wrong")).status).toBe(403);
-    const { comments } = await (await read(id, edit_key)).json<{ comments: { id: number; text: string }[] }>();
-    expect(comments.map((x) => x.text)).toEqual(["Bigger chart please", "Drop row 3"]);
-    await comment(id, "came in later");
-    expect((await call(`/api/pads/${id}/comments?upto=${comments[1].id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } })).status).toBe(204);
-    expect((await (await read(id, edit_key)).json<{ comments: { text: string }[] }>()).comments.map((x) => x.text)).toEqual(["came in later"]);
+    const mine = await (await read(id, edit_key)).json<{ review_open: boolean; annotations: { id: number; element_text: string; selector: string; fx: number }[] }>();
+    expect(mine.review_open).toBe(true);
+    expect(mine.annotations[0]).toMatchObject({ element_text: "Title", selector: "main > h1:nth-of-type(1)", fx: 0.5 });
+    await note(id, "came in later");
+    expect((await call(`/api/pads/${id}/annotations?upto=${mine.annotations[1].id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } })).status).toBe(204);
+    expect((await (await read(id, edit_key)).json<{ annotations: { text: string }[] }>()).annotations.map((a) => a.text)).toEqual(["came in later"]);
   });
 
-  it("refuses empty or long comments, unknown pads and private pads without the key", async () => {
-    const { id } = await (await publish("<title>t</title>")).json<{ id: string }>();
-    expect((await comment(id, " ")).status).toBe(400);
-    expect((await comment(id, "x".repeat(2001))).status).toBe(400);
-    expect((await comment("nopenope", "hi")).status).toBe(404);
-    const priv = await (await publish(JSON.stringify({ html: "<title>t</title>", private: true }), json)).json<{ id: string; url: string }>();
-    expect((await comment(priv.id, "hi")).status).toBe(404);
-    expect((await comment(priv.id, "hi", "10.9.0.2", new URL(priv.url).searchParams.get("k")!)).status).toBe(201);
+  it("closes a review 2 hours after the last note, and keeps it open while notes or updates come", async () => {
+    const { id, edit_key } = await fresh();
+    await review(id, edit_key, true);
+    await env.DB.prepare("UPDATE pads SET review_until = ? WHERE id = ?").bind(Date.now() + 1000, id).run();
+    await note(id, "keeps it open");
+    const after = (await env.DB.prepare("SELECT review_until FROM pads WHERE id = ?").bind(id).first<{ review_until: number }>())!.review_until;
+    expect(after - Date.now()).toBeGreaterThan(7_000_000);
+    await env.DB.prepare("UPDATE pads SET review_until = ? WHERE id = ?").bind(Date.now() + 1000, id).run();
+    await call(`/api/pads/${id}`, { method: "PUT", body: "<title>v2</title>", headers: { "x-edit-key": edit_key } });
+    expect((await env.DB.prepare("SELECT review_until FROM pads WHERE id = ?").bind(id).first<{ review_until: number }>())!.review_until - Date.now()).toBeGreaterThan(7_000_000);
+    await env.DB.prepare("UPDATE pads SET review_until = ? WHERE id = ?").bind(Date.now() - 1, id).run();
+    expect(await page(id)).not.toContain("/review.js");
+    expect((await note(id, "closed")).status).toBe(404);
+    expect((await read(id, edit_key)).status).toBe(200);
   });
 
-  it("limits comments per reader per hour, and deletes them with the pad", async () => {
-    const { id, edit_key } = await (await publish("<title>t</title>")).json<{ id: string; edit_key: string }>();
-    for (let i = 0; i < 20; i++) await comment(id, `c${i}`, "10.9.0.3");
-    expect((await comment(id, "one more", "10.9.0.3")).status).toBe(429);
+  it("needs a private pad's key for its notes, refuses bad notes, and lets readers fetch them across origins", async () => {
+    const priv = await fresh({ html: "<title>t</title>", private: true });
+    const k = new URL(priv.url).searchParams.get("k")!;
+    await review(priv.id, priv.edit_key, true);
+    expect(await page(priv.id, k)).toContain(`"k":"${k}"`);
+    expect((await note(priv.id, "hi")).status).toBe(404);
+    expect((await note(priv.id, "hi", "10.9.0.2", k)).status).toBe(201);
+    expect((await note(priv.id, " ", "10.9.0.2", k)).status).toBe(400);
+    expect((await note(priv.id, "x".repeat(2001), "10.9.0.2", k)).status).toBe(400);
+    const preflight = await call("/api/annotations", { method: "OPTIONS", headers: { origin: "null", "access-control-request-method": "POST", "access-control-request-headers": "content-type" } });
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+  });
+
+  it("limits notes per reader per hour, and deletes them with the pad", async () => {
+    const { id, edit_key } = await fresh();
+    await review(id, edit_key, true);
+    for (let i = 0; i < 20; i++) await note(id, `n${i}`, "10.9.0.3");
+    expect((await note(id, "one more", "10.9.0.3")).status).toBe(429);
     await call(`/api/pads/${id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } });
-    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE pad_id = ?").bind(id).first("n")).toBe(0);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM annotations WHERE pad_id = ?").bind(id).first("n")).toBe(0);
   });
 });
 
@@ -845,7 +882,7 @@ describe("mcp", () => {
     const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.instructions).toContain("get_guide");
     const names = (await rpc("tools/list")).tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "update_data", "check_pad", "get_comments", "clear_comments"]);
+    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "update_data", "check_pad", "review_pad", "get_annotations", "clear_annotations"]);
   });
 
   it("updates a pad's data", async () => {

@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { cors } from "hono/cors";
 import { parsePage, renderPage } from "./blocks";
 import { capturePreview, checkPad } from "./check";
 import { handleMcp } from "./mcp";
@@ -135,7 +136,7 @@ async function readPad(req: Request, env: Bindings): Promise<PadBody | Response>
 
 // The link preview picture is kept with the pad's images so it is deleted with them, under a name no upload can have.
 const PREVIEW = "og.jpg";
-const PAD_ASSETS = new Set(["/scrawl.js", "/favicon.svg", "/apple-touch-icon.png", "/og.png"]);
+const PAD_ASSETS = new Set(["/scrawl.js", "/review.js", "/favicon.svg", "/apple-touch-icon.png", "/og.png"]);
 const padIdOfHost = (host: string, padDomain: string) => {
   if (!padDomain) return undefined;
   const label = host.endsWith(`.${padDomain}`) ? host.slice(0, -padDomain.length - 1) : "";
@@ -163,12 +164,12 @@ const padImageUrl = (c: Context<{ Bindings: Bindings }>, id: string, name: strin
 
 const sameKey = async (given: string | undefined, expected: string) => !!given && (await hashKey(given)) === (await hashKey(expected));
 
-type LivePad = { title: string; html: string; data: string | null; series: number; updated_at: number; link_key: string | null };
+type LivePad = { title: string; html: string; data: string | null; series: number; updated_at: number; link_key: string | null; review_until: number | null };
 
 // A pad and its images are served only while it exists, has not expired and was not taken down.
 // Images skip the link key: their names are unguessable, and the page that embeds them already has it.
 async function livePad(c: Context<{ Bindings: Bindings }>, id: string, checkLinkKey = true): Promise<LivePad | Response> {
-  const row = await c.env.DB.prepare("SELECT title, html, data, series, updated_at, hidden_at, expires_at, link_key FROM pads WHERE id = ?")
+  const row = await c.env.DB.prepare("SELECT title, html, data, series, updated_at, hidden_at, expires_at, link_key, review_until FROM pads WHERE id = ?")
     .bind(id)
     .first<LivePad & { hidden_at: number | null; expires_at: number }>();
   // A wrong link key looks like a missing pad, before any other answer could tell that it exists.
@@ -186,9 +187,9 @@ async function servePad(c: Context<{ Bindings: Bindings }>, id: string, isolated
   // Versioned by the update, so link previews cached by chat apps refresh when the pad changes; private pads get the Scrawl card.
   const image = row.link_key ? undefined : `${padImageUrl(c, id, PREVIEW)}?v=${row.updated_at}`;
   const link = row.series ? { label: "Past editions", href: padUrl(c, id, row.link_key, "e") } : undefined;
-  const comment = `${home}/comment?pad=${id}${row.link_key ? `&k=${encodeURIComponent(row.link_key)}` : ""}`;
   const feed = row.series ? padUrl(c, id, row.link_key, "feed.xml") : undefined;
-  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key, data: row.data, link, comment, feed });
+  const review = reviewOpen(row) ? { api: home, pad: id, k: row.link_key } : undefined;
+  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key, data: row.data, link, feed, review });
   return new Response(html, { headers: padHeaders(c.env.CDN_ALLOWLIST, isolated) });
 }
 
@@ -385,7 +386,7 @@ app.post("/api/publish", async (c) => {
       ...lintReply(issues),
       ...(body.images.size ? { images } : {}),
       update: `PUT ${origin}/api/pads/${id} with header x-edit-key: ${editKey} and the new HTML as the body (same link). Each update keeps the pad another ${ttlDays} days.`,
-      comments: `GET ${origin}/api/pads/${id}/comments with header x-edit-key: ${editKey} lists what readers asked to change, from the pad's Comment link.`,
+      review: `To let the user pin notes on the page, PUT ${origin}/api/pads/${id}/review with header x-edit-key: ${editKey} and {"open": true}, then GET ${origin}/api/pads/${id}/annotations with the same header to read them.`,
       delete: `DELETE ${origin}/api/pads/${id} with header x-edit-key: ${editKey}`,
     },
     201,
@@ -422,8 +423,9 @@ app.put("/api/pads/:id", async (c) => {
   const { html, images } = attached;
   // An update restarts the pad's lifetime, with the length it asked for before unless it asks again.
   const now = Date.now();
-  const update = c.env.DB.prepare("UPDATE pads SET html = ?, title = ?, updated_at = ?, ttl_days = COALESCE(?, ttl_days), expires_at = ? + COALESCE(?, ttl_days) * ? WHERE id = ? RETURNING expires_at")
-    .bind(html, body.title ?? extractTitle(html), now, body.ttlDays ?? null, now, body.ttlDays ?? null, DAY_MS, id);
+  // An open review stays open while the author keeps updating the page.
+  const update = c.env.DB.prepare("UPDATE pads SET html = ?, title = ?, updated_at = ?, ttl_days = COALESCE(?, ttl_days), expires_at = ? + COALESCE(?, ttl_days) * ?, review_until = CASE WHEN review_until > ? THEN ? ELSE review_until END WHERE id = ? RETURNING expires_at")
+    .bind(html, body.title ?? extractTitle(html), now, body.ttlDays ?? null, now, body.ttlDays ?? null, DAY_MS, now, now + REVIEW_MS, id);
   // A series pad keeps the page it replaces, with the data it had, dated when it went live.
   const archive = [
     c.env.DB.prepare("INSERT INTO editions (pad_id, n, title, html, data, created_at) SELECT id, COALESCE((SELECT MAX(n) FROM editions WHERE pad_id = ?), 0) + 1, title, html, data, updated_at FROM pads WHERE id = ? RETURNING n").bind(id, id),
@@ -448,7 +450,7 @@ app.delete("/api/pads/:id", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
-  await c.env.DB.batch(["pads WHERE id", "editions WHERE pad_id", "comments WHERE pad_id"].map((where) => c.env.DB.prepare(`DELETE FROM ${where} = ?`).bind(id)));
+  await c.env.DB.batch(["pads WHERE id", "editions WHERE pad_id", "annotations WHERE pad_id"].map((where) => c.env.DB.prepare(`DELETE FROM ${where} = ?`).bind(id)));
   await deletePadImages(c.env, [id]);
   return c.body(null, 204);
 });
@@ -527,43 +529,89 @@ app.post("/api/report", async (c) => {
   return c.json({ ok: true });
 });
 
-const COMMENT_MAX_CHARS = 2000;
-const COMMENTS_PER_PAD = 100;
-const COMMENTS_PER_HOUR = 20;
+// A review lets readers pin notes on the page; it closes itself after this long without a note or a page update.
+const REVIEW_MS = 2 * 3_600_000;
+const reviewOpen = (pad: { review_until: number | null }) => (pad.review_until ?? 0) > Date.now();
+const NOTE_MAX_CHARS = 2000;
+const NOTES_PER_PAD = 100;
+const NOTES_PER_HOUR = 20;
 
-// A reader asks the author for a change; a private pad's key comes as ?k=, as on the pad itself.
-app.post("/api/comments", async (c) => {
-  const body = await c.req.json<{ pad?: unknown; text?: unknown }>().catch(() => ({}) as Record<string, unknown>);
-  const pad = typeof body.pad === "string" ? body.pad : "";
-  const text = typeof body.text === "string" ? body.text.trim() : "";
-  if (!text || text.length > COMMENT_MAX_CHARS) return fail(400, "bad_comment", `text must be 1 to ${COMMENT_MAX_CHARS} characters`);
-  if ((await livePad(c, pad)) instanceof Response) return fail(404, "not_found", "not found");
-  const ipHash = await hashKey(clientIp(c));
-  const counts = await c.env.DB.prepare("SELECT (SELECT COUNT(*) FROM comments WHERE ip_hash = ? AND created_at > ?) AS mine, (SELECT COUNT(*) FROM comments WHERE pad_id = ?) AS waiting")
-    .bind(ipHash, Date.now() - 3_600_000, pad)
-    .first<{ mine: number; waiting: number }>();
-  if (counts!.mine >= COMMENTS_PER_HOUR) return fail(429, "comment_limit", "too many comments, try again later");
-  if (counts!.waiting >= COMMENTS_PER_PAD) return fail(422, "comments_full", "this page has too many comments waiting for its author");
-  await c.env.DB.prepare("INSERT INTO comments (pad_id, text, ip_hash, created_at) VALUES (?, ?, ?, ?)").bind(pad, text, ipHash, Date.now()).run();
-  return c.json({ ok: true }, 201);
+type Annotation = { id: number; text: string; selector: string | null; fx: number | null; fy: number | null; snippet: string | null; created_at: number };
+const annotationJson = (a: Annotation, withSnippet: boolean) => ({
+  id: a.id,
+  text: a.text,
+  selector: a.selector,
+  fx: a.fx,
+  fy: a.fy,
+  ...(withSnippet ? { element_text: a.snippet } : {}),
+  created_at: new Date(a.created_at).toISOString(),
 });
+const listAnnotations = (env: Bindings, id: string) => env.DB.prepare("SELECT id, text, selector, fx, fy, snippet, created_at FROM annotations WHERE pad_id = ? ORDER BY id").bind(id).all<Annotation>();
 
-app.get("/api/pads/:id/comments", async (c) => {
+// The author opens or closes the review; an open review shows readers the Annotate button.
+app.put("/api/pads/:id/review", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
-  const rows = await c.env.DB.prepare("SELECT id, text, created_at FROM comments WHERE pad_id = ? ORDER BY id").bind(id).all<{ id: number; text: string; created_at: number }>();
-  return c.json({ comments: rows.results.map((r) => ({ id: r.id, text: r.text, created_at: new Date(r.created_at).toISOString() })) });
+  const body = await c.req.json<{ open?: unknown }>().catch(() => ({}) as Record<string, unknown>);
+  if (typeof body.open !== "boolean") return fail(400, "bad_review", 'send {"open": true} or {"open": false}');
+  const until = body.open ? Date.now() + REVIEW_MS : null;
+  const row = await c.env.DB.prepare("UPDATE pads SET review_until = ? WHERE id = ? RETURNING link_key").bind(until, id).first<{ link_key: string | null }>();
+  return c.json({ id, url: padUrl(c, id, row!.link_key), open: body.open, ...(until ? { closes_at: new Date(until).toISOString() } : {}) });
 });
 
-// ?upto=<id> clears only the comments read, not one that came in since.
-app.delete("/api/pads/:id/comments", async (c) => {
+// Readers see the notes and add theirs while the review is open; a private pad's key comes as ?k=, as on the pad itself.
+app.use("/api/annotations", cors());
+
+app.get("/api/annotations", async (c) => {
+  const pad = await livePad(c, c.req.query("pad") ?? "");
+  if (pad instanceof Response || !reviewOpen(pad)) return fail(404, "no_review", "this page is not open for notes");
+  const rows = await listAnnotations(c.env, c.req.query("pad")!);
+  return c.json({ annotations: rows.results.map((a) => annotationJson(a, false)), closes_at: new Date(pad.review_until!).toISOString() });
+});
+
+app.post("/api/annotations", async (c) => {
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
+  const id = typeof body.pad === "string" ? body.pad : "";
+  const text = typeof body.text === "string" ? body.text.trim() : "";
+  if (!text || text.length > NOTE_MAX_CHARS) return fail(400, "bad_note", `text must be 1 to ${NOTE_MAX_CHARS} characters`);
+  const pad = await livePad(c, id);
+  if (pad instanceof Response || !reviewOpen(pad)) return fail(404, "no_review", "this page is not open for notes");
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : null);
+  const unit = (v: unknown) => (typeof v === "number" && v >= 0 && v <= 1 ? v : null);
+  const ipHash = await hashKey(clientIp(c));
+  const counts = await c.env.DB.prepare("SELECT (SELECT COUNT(*) FROM annotations WHERE ip_hash = ? AND created_at > ?) AS mine, (SELECT COUNT(*) FROM annotations WHERE pad_id = ?) AS waiting")
+    .bind(ipHash, Date.now() - 3_600_000, id)
+    .first<{ mine: number; waiting: number }>();
+  if (counts!.mine >= NOTES_PER_HOUR) return fail(429, "note_limit", "too many notes, try again later");
+  if (counts!.waiting >= NOTES_PER_PAD) return fail(422, "notes_full", "this page has too many notes waiting for its author");
+  const now = Date.now();
+  const [inserted] = await c.env.DB.batch<{ id: number }>([
+    c.env.DB.prepare("INSERT INTO annotations (pad_id, text, selector, fx, fy, snippet, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")
+      .bind(id, text, str(body.selector, 500), unit(body.fx), unit(body.fy), str(body.snippet, 300), ipHash, now),
+    c.env.DB.prepare("UPDATE pads SET review_until = ? WHERE id = ?").bind(now + REVIEW_MS, id),
+  ]);
+  return c.json({ id: inserted.results[0].id }, 201);
+});
+
+// The author reads every note, with the text of the element it points at, open review or not.
+app.get("/api/pads/:id/annotations", async (c) => {
+  const id = c.req.param("id");
+  const auth = await authorised(c, id);
+  if (auth !== true) return authFailure(auth);
+  const pad = await c.env.DB.prepare("SELECT review_until FROM pads WHERE id = ?").bind(id).first<{ review_until: number | null }>();
+  const rows = await listAnnotations(c.env, id);
+  return c.json({ review_open: reviewOpen(pad!), annotations: rows.results.map((a) => annotationJson(a, true)) });
+});
+
+// ?upto=<id> clears only the notes read, not one that came in since.
+app.delete("/api/pads/:id/annotations", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
   const upto = Number(c.req.query("upto") ?? Number.MAX_SAFE_INTEGER);
-  if (!Number.isInteger(upto)) return fail(400, "bad_upto", "upto must be a comment id");
-  await c.env.DB.prepare("DELETE FROM comments WHERE pad_id = ? AND id <= ?").bind(id, upto).run();
+  if (!Number.isInteger(upto)) return fail(400, "bad_upto", "upto must be a note id");
+  await c.env.DB.prepare("DELETE FROM annotations WHERE pad_id = ? AND id <= ?").bind(id, upto).run();
   return c.body(null, 204);
 });
 
@@ -605,7 +653,7 @@ export async function deleteExpired(env: Bindings, now = Date.now()) {
     env.DB.prepare("DELETE FROM pads WHERE expires_at < ?").bind(now),
     env.DB.prepare("DELETE FROM reports WHERE pad_id NOT IN (SELECT id FROM pads)"),
     env.DB.prepare("DELETE FROM editions WHERE pad_id NOT IN (SELECT id FROM pads)"),
-    env.DB.prepare("DELETE FROM comments WHERE pad_id NOT IN (SELECT id FROM pads)"),
+    env.DB.prepare("DELETE FROM annotations WHERE pad_id NOT IN (SELECT id FROM pads)"),
   ]);
   const orphans = await env.DB.prepare("SELECT DISTINCT pad_id FROM images WHERE pad_id NOT IN (SELECT id FROM pads)").all<{ pad_id: string }>();
   await deletePadImages(env, orphans.results.map((r) => r.pad_id));

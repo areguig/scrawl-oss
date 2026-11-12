@@ -77,11 +77,10 @@ const FONT = "font:500 14px/1.2 ui-sans-serif,system-ui,-apple-system,'Segoe UI'
 export const scrawlLogo = (px: number) =>
   `<svg viewBox="0 0 64 64" width="${px}" height="${px}" aria-hidden="true" style="all:initial;width:${px}px;height:${px}px;flex:none"><path d="M0 18A18 18 0 0 1 18 0A46 46 0 0 1 64 46A18 18 0 0 1 46 64A46 46 0 0 1 0 18Z" fill="#e2531f"/><path d="M17 40C25 25 33 51 47 24" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/></svg>`;
 // link is an extra footer link, such as a series pad's past editions.
-const madeWith = (home: string, padId?: string, link?: { label: string; href: string }, comment?: string) =>
+const madeWith = (home: string, padId?: string, link?: { label: string; href: string }) =>
   `<div data-scrawl-footer style="all:initial;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;color:inherit;padding:40px 16px 24px">` +
   `<a href="${home}/?ref=pad" target="_blank" rel="noopener" style="all:initial;box-sizing:border-box;display:flex;max-width:100%;align-items:center;gap:6px;padding:6px 12px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);color:inherit;opacity:.6;${FONT};cursor:pointer;text-decoration:none;white-space:nowrap">${scrawlLogo(16)}<span style="all:unset">Made with Scrawl · make your own</span></a>` +
   (link ? footerLink(link.href, link.label, "_self") : "") +
-  (comment ? footerLink(comment, "Comment", "_blank") : "") +
   (padId ? footerLink(`${home}/report?pad=${padId}`, "Report", "_blank") : "") +
   `</div>`;
 
@@ -97,13 +96,16 @@ function appendToBody(html: string, snippet: string): string {
 }
 
 // image is the link preview picture, the Scrawl card by default; describe is false for private pads, whose previews show no content.
-type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string; describe?: boolean; data?: string | null; link?: { label: string; href: string }; comment?: string; feed?: string };
+type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string; describe?: boolean; data?: string | null; link?: { label: string; href: string }; feed?: string; review?: Review };
+// While the author holds a review open, /review.js lets readers pin notes on the page.
+type Review = { api: string; pad: string; k: string | null };
+const reviewScript = (review: Review) => `<script>window.scrawlReview=${JSON.stringify(review).replace(/</g, "\\u003c")}</script><script src="/review.js" defer></script>`;
 
 // An isolated pad has its own origin, so real localStorage works and needs no shim.
-export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png`, describe = true, data, link, comment, feed }: PadContext): string {
+export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png`, describe = true, data, link, feed, review }: PadContext): string {
   const feedLink = feed ? `<link rel="alternate" type="application/atom+xml" title="New editions" href="${escapeAttr(feed)}">` : "";
   const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, image, describe) + feedLink + BASE_CSS + (isolated ? "" : STORAGE_SHIM) + (data ? dataScript(data) : ""));
-  return appendToBody(head, madeWith(home, padId, link, comment));
+  return appendToBody(head, madeWith(home, padId, link) + (review ? reviewScript(review) : ""));
 }
 
 // "fix" breaks the page for readers; "advice" is a quality hint the agent may skip.
