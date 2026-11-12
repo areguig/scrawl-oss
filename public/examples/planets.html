@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Jupiter could swallow over 1,300 Earths: the 8 planets compared</title>
+<meta name="description" content="True-scale sizes and distances of the eight planets, a sortable fact table, and a CSV download.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#f3ead8;--dim:#a99f8c;--bg:#0b0a12;--line:#2a2635;--sun:#ffb347;--accent:#ff7a45}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font-family:"Fraunces",Georgia,serif;line-height:1.5;overflow-x:hidden;
+    background:radial-gradient(1200px 600px at -10% -10%,#3a1c0f55,transparent 60%),var(--bg)}
+  #stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+  main{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:40px 18px 60px}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+  .kicker{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--sun)}
+  h1{font-size:clamp(34px,7vw,72px);line-height:1.02;margin:.25em 0 .3em;font-weight:700;letter-spacing:-.02em}
+  h1 em{color:var(--sun);font-weight:400}
+  .lede{font-size:clamp(17px,2.2vw,21px);color:var(--dim);max-width:640px;margin:0}
+  h2{font-size:clamp(24px,4vw,34px);margin:0 0 .2em;font-weight:700}
+  section{margin-top:56px}
+  .sub{color:var(--dim);margin:0 0 18px;max-width:640px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;background:#14121c;flex-wrap:wrap}
+  .seg button{font:600 13px "JetBrains Mono",monospace;color:var(--dim);background:none;border:0;border-radius:999px;padding:10px 14px;cursor:pointer;min-height:40px}
+  .seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+  .seg button:focus-visible,.btn:focus-visible,th button:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+  .stage{margin-top:16px;border:1px solid var(--line);border-radius:18px;background:#0f0d17cc;padding:14px 10px 8px;position:relative}
+  #viz{display:block;width:100%;height:auto;overflow:hidden}
+  .btn svg{flex:none}
+  .readout{min-height:72px;margin:6px 6px 4px;display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline}
+  .readout b{font-size:26px}
+  .readout span{font:13px "JetBrains Mono",monospace;color:var(--dim)}
+  .readout span i{font-style:normal;color:var(--ink)}
+  .hint{font:12px "JetBrains Mono",monospace;color:var(--dim);margin:8px 6px 0}
+  .planet{cursor:pointer;transition:opacity .25s}
+  .dimmed .planet:not(.on){opacity:.7}
+  .lbl{font:12px "JetBrains Mono",monospace;fill:var(--dim)}
+  .lbl.on{fill:var(--ink)}
+  .big{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-top:36px}
+  .big div{background:var(--bg);padding:18px}
+  .big b{display:block;font-size:40px;line-height:1;color:var(--sun)}
+  .big span{color:var(--dim);font-size:15px}
+  .tablehead{display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between}
+  .btn{font:600 14px "JetBrains Mono",monospace;background:var(--sun);color:#1a1006;border:0;border-radius:999px;padding:12px 20px;cursor:pointer;display:inline-flex;gap:8px;align-items:center;min-height:44px}
+  .btn:hover{background:#ffc874}
+  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:18px;margin-top:16px;background:#0f0d17cc}
+  table{border-collapse:collapse;width:100%;font:13px "JetBrains Mono",monospace;min-width:760px}
+  th,td{padding:12px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:#121019}
+  th{font-weight:600;color:var(--dim);vertical-align:bottom}
+  th button{all:unset;cursor:pointer;display:inline-block;padding:4px 0}
+  th[aria-sort] button{color:var(--ink)}
+  th button::after{content:" ↕";opacity:.35}
+  th[aria-sort=ascending] button::after{content:" ↑";opacity:1;color:var(--sun)}
+  th[aria-sort=descending] button::after{content:" ↓";opacity:1;color:var(--sun)}
+  tbody tr{cursor:pointer}
+  tbody tr:hover td,tbody tr.on td{background:#1d1926}
+  tr:last-child td{border-bottom:0}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
+  footer{margin-top:48px;color:var(--dim);font-size:14px;border-top:1px solid var(--line);padding-top:16px}
+  footer a{color:var(--ink)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="stars" aria-hidden="true"></canvas>
+<main>
+  <div class="kicker">A data story · The solar system</div>
+  <h1>Jupiter could swallow <em>over 1,300 Earths</em>, and Neptune sits 30 times farther from the Sun than we do.</h1>
+  <p class="lede">The eight planets drawn to true scale: first by size, then by distance. Tap any planet to follow it through the page.</p>
+
+  <div class="big">
+    <div><b>29×</b><span>Jupiter's diameter is 29 times Mercury's</span></div>
+    <div><b>4 h 11 m</b><span>for sunlight to reach Neptune (8 min for Earth)</span></div>
+    <div><b>164 yrs</b><span>for Neptune to circle the Sun once</span></div>
+  </div>
+
+  <section aria-labelledby="h-scale">
+    <h2 id="h-scale">Two scales, one solar system</h2>
+    <p class="sub" id="sub">Sizes are drawn to the same scale. The arc on the left is the edge of the Sun, ten times wider than Jupiter.</p>
+    <div class="seg" role="group" aria-label="View">
+      <button data-view="size" aria-pressed="true">Size</button>
+      <button data-view="dist" aria-pressed="false">Distance</button>
+      <button data-view="log" aria-pressed="false">Log distance</button>
+    </div>
+    <div class="stage" id="stage">
+      <svg id="viz" role="img" aria-label="Planets compared to scale"></svg>
+      <div class="readout" id="readout" aria-live="polite"></div>
+    </div>
+    <p class="hint" id="hint">Tap or hover a planet for its numbers.</p>
+  </section>
+
+  <section aria-labelledby="h-table">
+    <div class="tablehead">
+      <div>
+        <h2 id="h-table">The facts, side by side</h2>
+        <p class="sub" style="margin:0">Click a column heading to sort. Click again to reverse.</p>
+      </div>
+      <button class="btn" id="csv" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        Download CSV
+      </button>
+    </div>
+    <div class="tw"><table id="tbl"><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <footer>Source: <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/" target="_blank" rel="noopener">NASA Planetary Fact Sheet</a>; moon counts from NASA and the IAU Minor Planet Center (confirmed moons, as of 2025; counts keep rising), 12 Nov 2026. Distances are mean distances from the Sun; temperatures are mean surface or 1-bar values, approximate.</footer>
+</main>
+
+<script>
+const P = [
+  {name:"Mercury",c:"#b7a99a",d:4879,  au:0.387,mkm:57.9,  yr:88,     day:4222.6,moons:0,  mass:0.330,g:3.7, t:167},
+  {name:"Venus",  c:"#e8c47c",d:12104, au:0.723,mkm:108.2, yr:224.7,  day:2802,  moons:0,  mass:4.87, g:8.9, t:464},
+  {name:"Earth",  c:"#4f8fe0",d:12756, au:1.000,mkm:149.6, yr:365.2,  day:24,    moons:1,  mass:5.97, g:9.8, t:15},
+  {name:"Mars",   c:"#d1603d",d:6792,  au:1.524,mkm:228.0, yr:687,    day:24.7,  moons:2,  mass:0.642,g:3.7, t:-65},
+  {name:"Jupiter",c:"#d9a77a",d:142984,au:5.203,mkm:778.5, yr:4331,   day:9.9,   moons:95, mass:1898, g:23.1,t:-110},
+  {name:"Saturn", c:"#e6cf96",d:120536,au:9.573,mkm:1432.0,yr:10747,  day:10.7,  moons:274,mass:568,  g:9.0, t:-140},
+  {name:"Uranus", c:"#9fd6dc",d:51118, au:19.17,mkm:2867.0,yr:30589,  day:17.2,  moons:29, mass:86.8, g:8.7, t:-195},
+  {name:"Neptune",c:"#4a6fe3",d:49528, au:30.18,mkm:4515.0,yr:59800,  day:16.1,  moons:16, mass:102,  g:11.0,t:-200},
+];
+const COLS = [
+  {k:"name", h:"Planet"},
+  {k:"d",    h:"Diameter (km)"},
+  {k:"mkm",  h:"Distance from Sun (million km)"},
+  {k:"au",   h:"Distance (AU)"},
+  {k:"yr",   h:"Orbital period (Earth days)"},
+  {k:"day",  h:"Length of day (hours)"},
+  {k:"moons",h:"Moons"},
+  {k:"mass", h:"Mass (10^24 kg)"},
+  {k:"g",    h:"Gravity (m/s²)"},
+  {k:"t",    h:"Mean temp (°C)"},
+];
+const fmt = (v) => typeof v === "number" ? v.toLocaleString("en-US") : v;
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+
+let view = "size", selected = "Earth";
+const svg = document.getElementById("viz"), stage = document.getElementById("stage");
+
+function lightTime(mkm){ const m = mkm*1e9/299792458/60; return m < 60 ? Math.round(m)+" min" : Math.floor(m/60)+" h "+Math.round(m%60)+" min"; }
+function years(days){ return days < 700 ? Math.round(days)+" days" : (days/365.25).toFixed(1)+" years"; }
+
+function readout(){
+  const p = P.find(x => x.name === selected), e = P[2];
+  const ratio = p.d / e.d;
+  document.getElementById("readout").innerHTML =
+    `<b style="color:${p.c}">${p.name}</b>` +
+    `<span>width <i>${ratio >= 1 ? ratio.toFixed(1)+"× Earth" : Math.round(ratio*100)+"% of Earth"}</i></span>` +
+    `<span>holds <i>${ratio**3 >= 1.5 ? Math.round(ratio**3).toLocaleString("en-US") + " Earths" : ratio**3 >= 1 ? "1 Earth" : Math.round(ratio**3*100) + "% of an Earth"}</i></span>` +
+    `<span>sunlight takes <i>${lightTime(p.mkm)}</i></span>` +
+    `<span>a year lasts <i>${years(p.yr)}</i></span>`;
+}
+
+function draw(){
+  const W = Math.max(320, stage.clientWidth - 20);
+  svg.innerHTML = "";
+  svg.classList.add("dimmed");
+  if (view === "size") {
+    const sunR = 1392700/2, gap = W * 0.012, sunShow = W * 0.06;
+    const sum = P.reduce((s,p) => s + p.d, 0);
+    const k = (W - sunShow - gap*8) / sum;            // px per km
+    const H = Math.max(150, 142984*k + 76), cy = (H-44)/2 + 6;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const sr = sunR*k;
+    const grad = el("radialGradient",{id:"sg"}, el("defs",{},svg));
+    el("stop",{offset:"0.9",  "stop-color":"#ffb347"},grad); el("stop",{offset:"1","stop-color":"#ff7a45"},grad);
+    el("circle",{cx: sunShow - sr, cy, r: sr, fill:"url(#sg)", opacity:.95}, svg);
+    let x = sunShow + gap;
+    P.forEach((p,i) => {
+      const r = p.d*k/2, cx = x + r; x += p.d*k + gap;
+      planet(p, cx, cy, Math.max(r, 1.5), i % 2 ? H - 6 : H - 22);
+    });
+  } else {
+    const H = 170, cy = 80, left = 26, right = W - 30;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const max = 30.18, lmin = Math.log10(0.3), lmax = Math.log10(max);
+    const xOf = (au) => view === "dist" ? left + (au/max)*(right-left) : left + (Math.log10(au)-lmin)/(lmax-lmin)*(right-left);
+    el("line",{x1:0,y1:cy,x2:W,y2:cy,stroke:"#2a2635"},svg);
+    el("circle",{cx:left - (view==="dist"?0:10), cy, r:8, fill:"#ffb347"},svg);
+    const ticks = view === "dist" ? [0,5,10,15,20,25,30] : [0.5,1,2,5,10,20,30];
+    ticks.forEach(t => {
+      if (t === 0) return;
+      const tx = xOf(t);
+      el("line",{x1:tx,y1:cy+28,x2:tx,y2:cy+34,stroke:"#5a5468"},svg);
+      el("text",{x:tx,y:cy+48,"text-anchor":"middle",class:"lbl"},svg).textContent = t + " AU";
+    });
+    P.forEach((p,i) => {
+      const cx = xOf(p.au), r = Math.max(3, Math.sqrt(p.d)/22);
+      // alternate labels above/below so the crowded inner system stays legible
+      planet(p, cx, cy, r, i % 2 ? cy + r + 18 : cy - r - 10);
+    });
+  }
+  readout();
+}
+
+function planet(p, cx, cy, r, ly){
+  const g = el("g",{class:"planet"+(p.name===selected?" on":""),tabindex:0,role:"button","aria-label":p.name}, svg);
+  el("circle",{cx,cy,r:Math.max(r+10,22),fill:"transparent"},g); // bigger touch target
+  if (p.name === "Saturn") el("ellipse",{cx,cy,rx:r*1.4,ry:r*0.32,fill:"none",stroke:p.c,"stroke-width":Math.max(1,r*0.12),opacity:.7},g);
+  el("circle",{cx,cy,r,fill:p.c},g);
+  if (p.name === selected) el("circle",{cx,cy,r:r+5,fill:"none",stroke:"#f3ead8","stroke-width":1.2,"stroke-dasharray":"3 3"},g);
+  // the rocky planets sit too close to label all four, except on the log scale
+  if (view === "log" || p.d > 40000 || p.name === selected) {
+    const W = svg.viewBox.baseVal.width, anchor = cx > W - 32 ? "end" : cx < 32 ? "start" : "middle";
+    const t = el("text",{x: anchor === "end" ? W - 2 : anchor === "start" ? 2 : cx, y:ly, "text-anchor":anchor,class:"lbl"+(p.name===selected?" on":"")},g);
+    t.textContent = p.name;
+  }
+  const pick = () => select(p.name);
+  g.addEventListener("click", pick);
+  g.addEventListener("mouseenter", pick);
+  g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+}
+
+function select(name){
+  if (name === selected) return;
+  selected = name; draw(); markRows();
+}
+
+// view toggle
+const subs = {
+  size:"Sizes are drawn to the same scale. The arc on the left is the edge of the Sun, ten times wider than Jupiter.",
+  dist:"Mean distance from the Sun, on a true linear scale. The four rocky planets huddle in the first sliver; the giants spread out across the dark. Switch to log to pick the rocky ones apart.",
+  log:"The same distances on a log scale, so each step to the right is a multiplication. Now the inner planets have room to breathe."
+};
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  view = b.dataset.view;
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  document.getElementById("sub").textContent = subs[view];
+  draw();
+}));
+
+// table
+let sortKey = "au", sortDir = 1;
+const thead = document.getElementById("thead"), tbody = document.getElementById("tbody");
+COLS.forEach(c => {
+  const th = document.createElement("th"); th.scope = "col";
+  const b = document.createElement("button"); b.textContent = c.h; b.type = "button";
+  b.addEventListener("click", () => { sortDir = sortKey === c.k ? -sortDir : (c.k === "name" ? 1 : -1); sortKey = c.k; renderTable(); });
+  th.appendChild(b); th.dataset.k = c.k; thead.appendChild(th);
+});
+function sorted(){
+  return [...P].sort((a,b) => (typeof a[sortKey] === "string" ? a[sortKey].localeCompare(b[sortKey]) : a[sortKey] - b[sortKey]) * sortDir);
+}
+function renderTable(){
+  thead.querySelectorAll("th").forEach(th => th.dataset.k === sortKey ? th.setAttribute("aria-sort", sortDir > 0 ? "ascending" : "descending") : th.removeAttribute("aria-sort"));
+  tbody.innerHTML = "";
+  sorted().forEach(p => {
+    const tr = document.createElement("tr"); tr.dataset.name = p.name;
+    COLS.forEach((c,i) => {
+      const td = document.createElement(i ? "td" : "th");
+      if (!i) { td.scope = "row"; td.style.fontWeight = 600; td.innerHTML = `<span class="dot" style="background:${p.c}"></span>`; td.append(p.name); }
+      else td.textContent = fmt(p[c.k]);
+      tr.appendChild(td);
+    });
+    tr.addEventListener("click", () => { select(p.name); document.getElementById("h-scale").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); });
+    tbody.appendChild(tr);
+  });
+  markRows();
+}
+function markRows(){ tbody.querySelectorAll("tr").forEach(tr => tr.classList.toggle("on", tr.dataset.name === selected)); }
+
+// CSV export, in the table's current sort order
+document.getElementById("csv").addEventListener("click", () => {
+  const q = (v) => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : String(v);
+  const lines = [COLS.map(c => q(c.h)).join(",")].concat(sorted().map(p => COLS.map(c => q(p[c.k])).join(",")));
+  const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], {type:"text/csv;charset=utf-8"}));
+  const a = Object.assign(document.createElement("a"), {href:url, download:"planets.csv"});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+// starfield: drawn once, static, so it costs nothing
+function stars(){
+  const c = document.getElementById("stars"), dpr = Math.min(2, devicePixelRatio || 1);
+  c.width = innerWidth*dpr; c.height = innerHeight*dpr;
+  const x = c.getContext("2d"); x.scale(dpr,dpr);
+  let s = 7; const rnd = () => (s = (s*16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 220; i++) { x.fillStyle = `rgba(243,234,216,${0.15 + rnd()*0.6})`; x.beginPath(); x.arc(rnd()*innerWidth, rnd()*innerHeight, rnd()*1.1+0.2, 0, 7); x.fill(); }
+}
+
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { draw(); stars(); }, 120); });
+stars(); renderTable(); draw();
+</script>
+</body>
+</html>
