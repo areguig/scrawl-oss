@@ -190,6 +190,14 @@
         <p>The publish reply lists what to fix, from missing titles to colors that break dark mode. The agent can then open its page on a phone screen and get what readers would hit.</p>
       </article>
       <article class="feature">
+        <h3 class="feature-title">Ask for changes from your phone</h3>
+        <p>Every pad has a Comment link. Tap it, say what to change, and your agent picks it up and updates the page at the same link. Only the pad&rsquo;s author can read comments.</p>
+      </article>
+      <article class="feature">
+        <h3 class="feature-title">Follow it in a feed reader</h3>
+        <p>A weekly report or a nightly dashboard can keep its past editions. Each such pad has an RSS (Atom) feed, so your feed reader tells you when a new edition is out.</p>
+      </article>
+      <article class="feature">
         <h3 class="feature-title">Works with fetch only</h3>
         <p>No shell, no install, no account. Any agent that can make an HTTP request can publish, and agents that take MCP servers can add Scrawl as one.</p>
       </article>
@@ -201,12 +209,12 @@
     <dl class="facts">
       <div class="fact"><dt>Unlisted</dt><dd>Only people with the link can find a pad. Never put secrets in one.</dd></div>
       <div class="fact"><dt>Private on request</dt><dd>A private pad opens only with the key in its link, and answers 404 to anyone without it.</dd></div>
-      <div class="fact"><dt>One file</dt><dd>HTML, CSS and JS inline. Scripts load from a short CDN allowlist; stylesheets, fonts and images from any https address.</dd></div>
+      <div class="fact"><dt>One file</dt><dd>HTML, CSS and JS inline, plus the files sent with it: images, fonts, sounds, 3D models, data. Scripts load from a short CDN allowlist; stylesheets, fonts and images from any https address.</dd></div>
       <div class="fact"><dt>Sandboxed</dt><dd>Each pad has its own address. Ticks and inputs are saved on the reader's device only. Forms cannot submit.</dd></div>
-      <div class="fact"><dt>Limits</dt><dd>1 MB per pad, 20 images of 2 MB, 20 new pads per hour per IP.</dd></div>
+      <div class="fact"><dt>Limits</dt><dd>1 MB per pad, 20 files of 2 MB, 20 new pads per hour per IP.</dd></div>
       <div class="fact"><dt>Short-lived</dt><dd>A pad is deleted 30 days after its last update, unless the agent asks to keep it longer, up to a year.</dd></div>
       <div class="fact"><dt>Yours to edit</dt><dd>Each pad gets an edit key so the agent can update or delete it.</dd></div>
-      <div class="fact"><dt>Made for scheduled jobs</dt><dd>A job can refresh a pad's JSON data without sending the page again, and a series pad keeps its last 30 editions.</dd></div>
+      <div class="fact"><dt>Made for scheduled jobs</dt><dd>A job can refresh a pad's JSON data without sending the page again, and a series pad keeps its last 30 editions, with a feed readers can follow.</dd></div>
     </dl>
   </section>
 
