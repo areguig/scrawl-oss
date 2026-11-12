@@ -24,7 +24,7 @@ const page = {
   page: PageSchema.optional().describe("The page as data: a headline and blocks (text, stats, chart, table, compare...) that Scrawl renders. Send this or html"),
   title: z.string().optional(),
   expires_in_days: z.number().int().min(1).max(365).optional().describe("Days the pad lives after its last update (default 30)"),
-  images: z.record(z.string(), z.string()).optional().describe('Image files the page refers to by file name, as {"photo.jpg": "<base64>"}'),
+  files: z.record(z.string(), z.string()).optional().describe('Files the page refers to by file name (images, fonts, audio, video, GLB models, JSON/CSV data), as {"photo.jpg": "<base64>"}'),
 };
 const pad = { id: z.string(), edit_key: z.string() };
 

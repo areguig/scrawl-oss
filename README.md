@@ -134,8 +134,8 @@ Settings live in `vars` in `wrangler.jsonc`. When you run Scrawl with Docker or 
 | `MAX_PAD_BYTES` | 1000000 | largest page |
 | `PAD_TTL_DAYS` | 30 | days a page lives after its last update |
 | `PAD_MAX_TTL_DAYS` | 365 | longest life an agent may ask for |
-| `IMAGE_MAX_BYTES` | 2000000 | largest uploaded image |
-| `IMAGE_MAX_PER_PAD` | 20 | images per page |
+| `IMAGE_MAX_BYTES` | 2000000 | largest uploaded file (image, font, sound, model, data) |
+| `IMAGE_MAX_PER_PAD` | 20 | uploaded files per page |
 | `REPORT_HIDE_THRESHOLD` | 3 | reports from different readers before a page is hidden |
 | `CDN_ALLOWLIST` | jsDelivr, cdnjs, unpkg, Tailwind, Google Fonts, esm.sh | hosts pages may load scripts from (stylesheets, fonts and images may come from any https host) |
 

@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { parsePage, renderPage } from "./blocks";
 import { capturePreview, checkPad } from "./check";
 import { handleMcp } from "./mcp";
-import { deleteImageObjects, IMAGE_NAME, imageHeaders, imageTypeOf } from "./images";
+import { deleteFileObjects, FILE_NAME, fileHeaders, fileTypeOf } from "./files";
 import { alpineIssues, escapeAttr, extractTitle, hashKey, lintPad, newEditKey, newId, newLinkKey, padHeaders, preparePad, scrawlLogo, type Issue } from "./pad";
 
 type Bindings = {
@@ -66,7 +66,7 @@ const fail = (status: number, code: string, error: string) => Response.json({ er
 type PadBody = { html: string; title?: string; ttlDays?: number; isPrivate?: boolean; series?: boolean; images: Map<string, Uint8Array<ArrayBuffer>> };
 type PadFields = { html: unknown; page?: unknown; title?: unknown; expires_in_days?: unknown; private?: unknown; series?: unknown; images: Map<string, Uint8Array<ArrayBuffer>> };
 
-const BAD_JSON = 'JSON body must be {"html": string or "page": {...}, "title"?: string, "expires_in_days"?: number, "private"?: boolean, "series"?: boolean, "images"?: {"<file name>": "<base64>"}}';
+const BAD_JSON = 'JSON body must be {"html": string or "page": {...}, "title"?: string, "expires_in_days"?: number, "private"?: boolean, "series"?: boolean, "files"?: {"<file name>": "<base64>"}}';
 const fromBase64 = (text: string) => Uint8Array.from(atob(text), (ch) => ch.charCodeAt(0));
 
 // A pad comes as raw HTML, as JSON, or as a multipart form whose file parts are the images the page refers to by file name.
@@ -87,8 +87,9 @@ async function readFields(req: Request): Promise<PadFields | Response> {
   const raw = await req.text();
   if (!type.includes("application/json")) return { html: raw, images: new Map() };
   try {
-    const body = JSON.parse(raw) as Omit<PadFields, "images"> & { images?: Record<string, string> };
-    return { ...body, images: new Map(Object.entries(body.images ?? {}).map(([name, data]) => [name, fromBase64(data)])) };
+    const body = JSON.parse(raw) as Omit<PadFields, "images"> & { images?: Record<string, string>; files?: Record<string, string> };
+    const files = { ...body.images, ...body.files };
+    return { ...body, images: new Map(Object.entries(files).map(([name, data]) => [name, fromBase64(data)])) };
   } catch {
     return fail(400, "bad_json", BAD_JSON);
   }
@@ -235,12 +236,12 @@ async function serveEdition(c: Context<{ Bindings: Bindings }>, id: string, n: s
 }
 
 async function serveImage(c: Context<{ Bindings: Bindings }>, id: string, name: string) {
-  if (!IMAGE_NAME.test(name)) return c.text("Not found", 404);
+  if (!FILE_NAME.test(name)) return c.text("Not found", 404);
   const pad = await livePad(c, id, false);
   if (pad instanceof Response) return pad;
   const object = await c.env.IMAGES.get(`${id}/${name}`);
   if (!object) return c.text("Not found", 404);
-  return new Response(object.body, { headers: imageHeaders(object.httpMetadata?.contentType ?? "application/octet-stream") });
+  return new Response(object.body, { headers: fileHeaders(object.httpMetadata?.contentType ?? "application/octet-stream") });
 }
 
 // The link preview picture: the top of the pad, taken when first asked for after each update.
@@ -251,24 +252,24 @@ async function servePreview(c: Context<{ Bindings: Bindings }>, id: string) {
   if (pad.link_key) return c.text("Not found", 404);
   const key = `${id}/${PREVIEW}`;
   const stored = await c.env.IMAGES.get(key);
-  if (stored?.customMetadata?.v === String(pad.updated_at)) return new Response(stored.body, { headers: imageHeaders("image/jpeg") });
+  if (stored?.customMetadata?.v === String(pad.updated_at)) return new Response(stored.body, { headers: fileHeaders("image/jpeg") });
   const site = c.env.PAD_DOMAIN || new URL(c.req.url).host;
   const shot = c.env.BROWSER && (await capturePreview(c.env.BROWSER, padUrl(c, id), scrawlLogo(20), site).catch((err) => void console.error(err)));
   if (shot) {
     await c.env.IMAGES.put(key, shot, { httpMetadata: { contentType: "image/jpeg" }, customMetadata: { v: String(pad.updated_at) } });
     await c.env.DB.prepare("INSERT OR REPLACE INTO images (pad_id, name, bytes, created_at) VALUES (?, ?, ?, ?)").bind(id, PREVIEW, shot.length, Date.now()).run();
-    return new Response(shot, { headers: imageHeaders("image/jpeg") });
+    return new Response(shot, { headers: fileHeaders("image/jpeg") });
   }
   // No browser here, or none free: the last picture, else the Scrawl card, cached briefly so the next request tries again.
   const body = stored?.body ?? (await fetchAsset(c, "/og.png")).body;
-  return new Response(body, { headers: { ...imageHeaders(stored ? "image/jpeg" : "image/png"), "cache-control": "public, max-age=300" } });
+  return new Response(body, { headers: { ...fileHeaders(stored ? "image/jpeg" : "image/png"), "cache-control": "public, max-age=300" } });
 }
 
 async function deletePadImages(env: Bindings, padIds: string[]) {
   if (!padIds.length) return;
   const marks = padIds.map(() => "?").join(",");
   const rows = await env.DB.prepare(`SELECT pad_id, name FROM images WHERE pad_id IN (${marks})`).bind(...padIds).all<{ pad_id: string; name: string }>();
-  await deleteImageObjects(env.IMAGES, rows.results.map((r) => `${r.pad_id}/${r.name}`));
+  await deleteFileObjects(env.IMAGES, rows.results.map((r) => `${r.pad_id}/${r.name}`));
   await env.DB.prepare(`DELETE FROM images WHERE pad_id IN (${marks})`).bind(...padIds).run();
 }
 
@@ -305,17 +306,19 @@ app.get("/examples/:name", async (c) => {
   return new Response(preparePad(await asset.text(), { origin: new URL(c.req.url).origin }), { headers: padHeaders(c.env.CDN_ALLOWLIST) });
 });
 
-// Known raster formats only; the same file sent again for the same pad is stored once.
-async function storeImage(c: Context<{ Bindings: Bindings }>, id: string, bytes: Uint8Array<ArrayBuffer>): Promise<string | Response> {
+const FILE_TYPES = "images (JPEG, PNG, WebP, GIF, SVG), fonts (WOFF2, WOFF, TTF, OTF), audio (MP3, OGG, WAV), video (MP4, WebM), 3D models (GLB) or data (JSON, CSV, TXT)";
+
+// Known formats only, by their bytes or, for text, by name; the same file sent again for the same pad is stored once.
+async function storeFile(c: Context<{ Bindings: Bindings }>, id: string, bytes: Uint8Array<ArrayBuffer>, given?: string): Promise<string | Response> {
   const maxBytes = Number(c.env.IMAGE_MAX_BYTES);
-  if (bytes.length > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
-  const type = imageTypeOf(bytes);
-  if (!type) return fail(415, "image_type", "send the raw bytes of a JPEG, PNG, WebP or GIF file");
+  if (bytes.length > maxBytes) return fail(413, "image_too_large", `file over ${maxBytes / 1_000_000} MB`);
+  const type = fileTypeOf(bytes, given);
+  if (!type) return fail(415, "image_type", `send the raw bytes of one of: ${FILE_TYPES}; text files need their name (data.csv)`);
   const sha256 = await hashKey(bytes);
   const known = await c.env.DB.prepare("SELECT name FROM images WHERE pad_id = ? AND sha256 = ?").bind(id, sha256).first<{ name: string }>();
   if (known) return padImageUrl(c, id, known.name);
   const count = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM images WHERE pad_id = ? AND name != ?").bind(id, PREVIEW).first<{ n: number }>();
-  if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return fail(422, "image_limit", `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} images`);
+  if ((count?.n ?? 0) >= Number(c.env.IMAGE_MAX_PER_PAD)) return fail(422, "image_limit", `a pad holds at most ${c.env.IMAGE_MAX_PER_PAD} files`);
   const name = `${newId()}.${type.ext}`;
   await c.env.IMAGES.put(`${id}/${name}`, bytes, { httpMetadata: { contentType: type.contentType } });
   await c.env.DB.prepare("INSERT INTO images (pad_id, name, bytes, created_at, sha256) VALUES (?, ?, ?, ?, ?)").bind(id, name, bytes.length, Date.now(), sha256).run();
@@ -324,16 +327,19 @@ async function storeImage(c: Context<{ Bindings: Bindings }>, id: string, bytes:
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// Stores the images sent with a pad and points the page's references to each file name (src="photo.jpg", url(photo.jpg)) at it.
+// Stores the files sent with a pad and points the page's references to each file name at it: src="photo.jpg", url(font.woff2), fetch("data.csv").
 async function attachImages(c: Context<{ Bindings: Bindings }>, id: string, body: PadBody): Promise<{ html: string; images: Record<string, string> } | Response> {
   let html = body.html;
   const images: Record<string, string> = {};
   for (const [name, bytes] of body.images) {
-    const url = await storeImage(c, id, bytes);
+    const url = await storeFile(c, id, bytes, name);
     if (url instanceof Response) return url;
     images[name] = url;
     const file = escapeRegExp(name);
-    html = html.replace(new RegExp(`(=\\s*["']?)(?:\\./)?${file}(?=["'\\s>])`, "g"), `$1${url}`).replace(new RegExp(`url\\((["']?)(?:\\./)?${file}\\1\\)`, "g"), `url($1${url}$1)`);
+    html = html
+      .replace(new RegExp(`(["'\`])(?:\\./)?${file}\\1`, "g"), `$1${url}$1`)
+      .replace(new RegExp(`(=\\s*)(?:\\./)?${file}(?=[\\s>])`, "g"), `$1${url}`)
+      .replace(new RegExp(`url\\((?:\\./)?${file}\\)`, "g"), `url(${url})`);
   }
   return { html, images };
 }
@@ -447,15 +453,15 @@ app.delete("/api/pads/:id", async (c) => {
   return c.body(null, 204);
 });
 
-// The agent uploads an image file for its pad and puts the returned url in an <img src>.
+// The agent uploads a file for its pad (?name=data.csv for text files) and puts the returned url in the page.
 app.post("/api/pads/:id/images", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
   const maxBytes = Number(c.env.IMAGE_MAX_BYTES);
-  if (Number(c.req.header("content-length") ?? 0) > maxBytes) return fail(413, "image_too_large", `image over ${maxBytes / 1_000_000} MB`);
+  if (Number(c.req.header("content-length") ?? 0) > maxBytes) return fail(413, "image_too_large", `file over ${maxBytes / 1_000_000} MB`);
   const bytes = new Uint8Array(await c.req.arrayBuffer());
-  const url = await storeImage(c, id, bytes);
+  const url = await storeFile(c, id, bytes, c.req.query("name"));
   if (url instanceof Response) return url;
   return c.json({ url, bytes: bytes.length }, 201);
 });

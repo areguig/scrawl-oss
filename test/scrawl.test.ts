@@ -454,7 +454,8 @@ describe("images", () => {
     const img = await call(new URL(url).pathname);
     expect(img.status).toBe(200);
     expect(img.headers.get("content-type")).toBe("image/png");
-    expect(img.headers.get("content-security-policy")).toBe("default-src 'none'");
+    expect(img.headers.get("content-security-policy")).toBe("default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    expect(img.headers.get("access-control-allow-origin")).toBe("*");
     expect(new Uint8Array(await img.arrayBuffer())).toEqual(PNG);
   });
 
@@ -467,13 +468,33 @@ describe("images", () => {
     expect((await exports.default.fetch(new Request(`https://${id}.scrawls.dev/i/nope0000.png`))).status).toBe(404);
   });
 
-  it("refuses a wrong key, non-images, SVG and files over the size limit", async () => {
+  it("refuses a wrong key, unknown files, text files without a name and files over the size limit", async () => {
     const { id, edit_key } = await fresh();
     expect((await upload(id, "wrong", PNG)).status).toBe(403);
-    expect((await upload(id, edit_key, "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>")).status).toBe(415);
+    expect((await upload(id, edit_key, "<svg xmlns='http://www.w3.org/2000/svg'></svg>")).status).toBe(415);
+    expect((await upload(id, edit_key, new Uint8Array([0x50, 0x4b, 3, 4]))).status).toBe(415);
     const big = new Uint8Array(2_000_001);
     big.set(PNG);
     expect((await upload(id, edit_key, big)).status).toBe(413);
+  });
+
+  it("takes fonts, audio, models and data files, and points every quoted reference at them", async () => {
+    const WOFF2 = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0, 1]);
+    const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+    const html = `<title>t</title><style>@font-face{src:url(face.woff2)}</style><script>fetch("data.csv");fetch('./data.csv')</script><img src="icon.svg" alt="">`;
+    const files = { "face.woff2": b64(WOFF2), "data.csv": btoa("a,b\n1,2"), "icon.svg": btoa("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>") };
+    const res = await publish(JSON.stringify({ html, files }), { "content-type": "application/json" });
+    expect(res.status).toBe(201);
+    const { id, images } = await res.json<{ id: string; images: Record<string, string> }>();
+    const page = await (await call(`/p/${id}`)).text();
+    expect(page).toContain(`url(${images["face.woff2"]})`);
+    expect(page).toContain(`fetch("${images["data.csv"]}");fetch('${images["data.csv"]}')`);
+    expect(page).toContain(`src="${images["icon.svg"]}"`);
+    expect((await call(new URL(images["data.csv"]).pathname)).headers.get("content-type")).toBe("text/csv; charset=utf-8");
+    const svg = await call(new URL(images["icon.svg"]).pathname);
+    expect(svg.headers.get("content-type")).toBe("image/svg+xml");
+    expect(svg.headers.get("content-security-policy")).toContain("sandbox");
+    expect(images["face.woff2"]).toMatch(/\.woff2$/);
   });
 
   it("caps the number of images per pad", async () => {

@@ -132,13 +132,13 @@ The reply is JSON:
 
 After publishing, tell the user the link and one or two sentences with the main point of the page (the answer to their question). Do not paste the HTML in the chat.
 
-## Images
+## Images and other files
 - Images from the web: use the real https URL you found, with `alt` text. Never invent an image URL or use placeholder sites: the reader sees a broken image.
-- Your own image files (a photo, a screenshot, a chart you rendered): send them with the page and refer to each by its file name, `<img src="photo.jpg" alt="...">`. Scrawl stores them and points the page at them. With a shell, send a form:
+- Your own files (a photo, a screenshot, a font, a sound, a 3D model, a CSV): send them with the page and refer to each by its file name in quotes or `url()`: `<img src="photo.jpg" alt="...">`, `url(face.woff2)`, `fetch("data.csv")`. Scrawl stores them and points the page at them. With a shell, send a form:
   `curl -sS -F html=@pad.html -F image=@photo.jpg {{BASE_URL}}/api/publish`
-  With JSON, add `"images": {"photo.jpg": "<the file as base64>"}`. The reply lists each stored file in `images`. The same works on update.
-- To add one image to a pad that exists: `curl -sS --data-binary @photo.jpg -H 'x-edit-key: <edit_key>' {{BASE_URL}}/api/pads/<id>/images`. The reply is `{"url": "..."}` for your `<img src>`.
-- JPEG, PNG, WebP or GIF, 2 MB each, 20 per pad. Sending the same file again does not use up a place. They are deleted with the pad.
+  With JSON, add `"files": {"photo.jpg": "<the file as base64>"}`. The reply lists each stored file in `images`. The same works on update.
+- To add one file to a pad that exists: `curl -sS --data-binary @photo.jpg -H 'x-edit-key: <edit_key>' '{{BASE_URL}}/api/pads/<id>/images?name=photo.jpg'`. The reply is `{"url": "..."}` to put in the page.
+- Images (JPEG, PNG, WebP, GIF, SVG), fonts (WOFF2, WOFF, TTF, OTF), audio (MP3, OGG, WAV), video (MP4, WebM), 3D models (GLB) and data (JSON, CSV, TXT). 2 MB each, 20 per pad: link longer videos from an https URL. Sending the same file again does not use up a place. They are deleted with the pad.
 - Photos fill a card well with `<figure><img src="..." alt="..." class="h-48 w-full object-cover"></figure>` as the card's first child.
 
 ## 3. Update the same link
@@ -179,8 +179,8 @@ Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
 | 400 | `bad_upto` | `upto` is the id of the last comment you read |
 | 403 | `bad_edit_key` | use the `edit_key` from the publish reply |
 | 404 | `not_found` | check the id, or publish a new pad |
-| 413 | `pad_too_large`, `image_too_large`, `data_too_large` | page over 1 MB, image over 2 MB or data over 256 KB: cut content, upload a smaller image |
-| 415 | `image_type` | send the raw bytes of a JPEG, PNG, WebP or GIF |
+| 413 | `pad_too_large`, `image_too_large`, `data_too_large` | page over 1 MB, file over 2 MB or data over 256 KB: cut content, upload a smaller file |
+| 415 | `image_type` | send a supported file type; text files (SVG, JSON, CSV, TXT) need their name |
 | 422 | `password_field`, `image_limit` | remove the password field; reuse or drop images |
 | 429 | `publish_limit` | 20 new pads per hour reached: update an existing pad with PUT |
 | 501, 503 | `check_unavailable`, `check_busy` | the check is off on this Scrawl, or busy: skip it or try again in a minute |
