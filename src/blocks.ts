@@ -108,8 +108,8 @@ function renderBlock(b: Block, i: number): string {
         const list = [...(o.pros ?? []).map((p) => `<li class="flex gap-2">${icon("check", "text-success w-5 h-5 mt-0.5 shrink-0")}<span>${esc(p)}</span></li>`), ...(o.cons ?? []).map((p) => `<li class="flex gap-2">${icon("x", "text-error w-5 h-5 mt-0.5 shrink-0")}<span>${esc(p)}</span></li>`)].join("");
         return `<article class="card bg-base-100${o.pick ? " border-2 border-primary" : ""}"><div class="card-body">` +
           `<div class="flex items-start justify-between gap-2"><h3 class="card-title text-2xl">${esc(o.name)}</h3>${badge ? `<span class="badge ${o.pick ? "badge-primary" : "badge-ghost"}">${esc(badge)}</span>` : ""}</div>` +
-          (o.price !== undefined ? `<p class="text-3xl font-bold">${plain(o.price)}</p>` : "") +
-          (o.note ? `<p class="text-sm opacity-70">${esc(o.note)}</p>` : "") +
+          (o.price !== undefined ? `<p class="text-3xl font-bold grow-0">${plain(o.price)}</p>` : "") +
+          (o.note ? `<p class="text-sm opacity-70 grow-0">${esc(o.note)}</p>` : "") +
           (list ? `<ul class="space-y-2 mt-2">${list}</ul>` : "") +
           (o.url ? `<div class="card-actions mt-4"><a class="btn ${o.pick ? "btn-primary" : "btn-outline"} btn-sm" href="${esc(o.url)}" target="_blank" rel="noopener">Open</a></div>` : "") +
           `</div></article>`;
