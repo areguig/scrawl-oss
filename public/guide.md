@@ -128,9 +128,9 @@ The reply is JSON:
 ```
 1. Read `warnings`: each one breaks the page for readers. Fix every one, then update the pad (below). `advice` holds quality hints: follow them when they fit the page.
 2. Show `url` to the user, and when it expires (`expires_at`).
-3. Keep `id` and `edit_key` for this conversation. `update` and `delete` tell you exactly how to change or remove the pad.
+3. Keep `id` and `edit_key`. `update` and `delete` tell you exactly how to change or remove the pad. The user may come back in a later conversation (a comment, a change): if you have notes or memory that last across conversations, save the pad's URL, `id` and `edit_key` there; if not, give them to the user in your reply so they can hand them to you later.
 
-After publishing, tell the user the link and one or two sentences with the main point of the page (the answer to their question). Do not paste the HTML in the chat.
+After publishing, tell the user the link and one or two sentences with the main point of the page (the answer to their question). Do not paste the HTML in the chat. Say in one short line that they can tap Comment at the bottom of the page to ask for changes. For a series pad, also give them the `feed` link to follow new editions in a feed reader.
 
 ## Images and other files
 - Images from the web: use the real https URL you found, with `alt` text. Never invent an image URL or use placeholder sites: the reader sees a broken image.
@@ -160,7 +160,7 @@ For a page a scheduled job refreshes (a weekly report, a dashboard), two things 
 `POST {{BASE_URL}}/api/pads/<id>/check` with header `x-edit-key: <edit_key>` opens the pad on a 375px phone screen and returns `{"problems": [...]}`: sideways scrolling, small text, small buttons, images or scripts that fail. Fix them and update the pad. Add `?screenshot=1` to get a PNG of the whole page instead, `?desktop=1` for a 1280px screen and `?dark=1` for dark mode (they combine: `?screenshot=1&dark=1`). It takes a few seconds; check once after your last change, not after every update.
 
 ## 5. Read comments from readers
-Each pad has a Comment link at the bottom. Readers, usually the user on their phone, use it to ask for changes. When the user says they left a comment, or before you update a pad:
+Each pad has a Comment link at the bottom. Readers, usually the user on their phone, use it to ask for changes. When the user says they left a comment, or before you update a pad (find its `id` and `edit_key` in your notes, or ask the user for them):
 
 - `GET {{BASE_URL}}/api/pads/<id>/comments` with header `x-edit-key: <edit_key>` returns `{"comments": [{"id", "text", "created_at"}]}`.
 - Make the changes with an update, then `DELETE {{BASE_URL}}/api/pads/<id>/comments?upto=<last id read>` to clear the ones you handled.
@@ -221,7 +221,7 @@ Make it hold up: touch and mouse both work, motion respects `prefers-reduced-mot
 - Pads are public to anyone with the link and cannot be listed. No secrets, no personal data. A private pad needs the key in its link, but anyone holding that link can read it: it is not a login.
 - Forms cannot submit anywhere: use JavaScript. `fetch` to https URLs works.
 - Saving is per reader and per device: `$persist` or `localStorage` keep values when that reader comes back on the same browser. Nothing is shared between readers, and the pad's author cannot see it. Never ask readers for secrets or personal data.
-- Viewers cannot change a pad; they can only leave comments for you. Only the holder of the `edit_key` can update or delete it, so keep it for the conversation.
+- Viewers cannot change a pad; they can only leave comments for you. Only the holder of the `edit_key` can update or delete it, so keep it (see step 3 of Publish).
 - Maps: copy the map from the `map` recipe (MapLibre with OpenFreeMap tiles, no key). tile.openstreetmap.org and CARTO block pads.
 - Links open fine: use `<a href="https://..." target="_blank" rel="noopener">`.
 - Max 1 MB, 20 new pads per hour. Pads expire 30 days after the last update, 365 at most.
