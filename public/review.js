@@ -134,24 +134,48 @@
     }).catch(function () { send.disabled = false; $("[data-about]").textContent = "The note could not be sent. Try again."; });
   };
 
-  // While picking, the page underneath gets no taps: a game or a link must not react to the tap that places a note.
+  // While picking, the page underneath gets no events, so a game or a link does not react to the tap that places a note.
+  // The note goes on pointerup, not click: iOS sends no click for taps on plain text, nor after a blocked touch.
+  // Nothing is preventDefault-ed before the tap ends, so the reader can still scroll to the spot.
   function outside(e) { return e.composedPath().indexOf(host) < 0; }
-  ["pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "mousemove", "touchstart", "touchend"].forEach(function (type) {
-    window.addEventListener(type, function (e) { if (picking && outside(e)) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { capture: true, passive: false });
+  var down = null, swallowClick = false;
+  ["pointermove", "mousedown", "mouseup", "mousemove", "touchstart", "touchmove", "touchend"].forEach(function (type) {
+    window.addEventListener(type, function (e) { if (picking && outside(e)) e.stopPropagation(); }, true);
   });
-  window.addEventListener("click", function (e) {
+  window.addEventListener("pointerdown", function (e) {
     if (!picking || !outside(e)) return;
     e.stopPropagation();
+    down = { x: e.clientX, y: e.clientY };
+  }, true);
+  window.addEventListener("pointercancel", function () { down = null; }, true);
+  window.addEventListener("pointerup", function (e) {
+    if (!picking || !outside(e)) return;
+    e.stopPropagation();
+    var tap = down && Math.abs(e.clientX - down.x) < 10 && Math.abs(e.clientY - down.y) < 10;
+    down = null;
+    if (tap) pick(e.clientX, e.clientY);
+  }, true);
+  // The click that follows the tap must not open a link or press a button.
+  window.addEventListener("click", function (e) {
+    if ((!picking && !swallowClick) || !outside(e)) return;
+    e.stopPropagation();
     e.preventDefault();
-    var el = e.target && e.target.nodeType === 1 ? e.target : document.elementFromPoint(e.clientX, e.clientY) || document.body;
+    swallowClick = false;
+  }, true);
+
+  function pick(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el || el === host) return;
     var r = el.getBoundingClientRect();
-    target = { el: el, selector: selectorOf(el), fx: r.width ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0.5, fy: r.height ? Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) : 0.5 };
+    target = { el: el, selector: selectorOf(el), fx: r.width ? Math.min(1, Math.max(0, (x - r.left) / r.width)) : 0.5, fy: r.height ? Math.min(1, Math.max(0, (y - r.top) / r.height)) : 0.5 };
+    swallowClick = true;
+    setTimeout(function () { swallowClick = false; }, 800);
     setPicking(false);
     $("[data-about]").textContent = "About: " + textOf(el).slice(0, 80);
     write.hidden = false;
     draw();
     area.focus();
-  }, true);
+  }
 
   document.documentElement.appendChild(host);
   load();
