@@ -174,7 +174,7 @@ export function renderPage(page: Page): string {
 <main class="${width} mx-auto px-4 py-8 md:py-12 space-y-6">
 <header>${page.kicker ? `<p class="text-sm font-semibold text-primary">${esc(page.kicker)}</p>` : ""}<h1 class="text-3xl md:text-5xl font-bold mt-1">${esc(page.title)}</h1>${page.summary ? `<p class="text-lg opacity-70 mt-3 max-w-2xl">${esc(page.summary)}</p>` : ""}</header>
 ${page.blocks.map(renderBlock).join("\n")}
-${page.sources ? `<footer class="text-sm opacity-60">Source: ${mdInline(page.sources)}</footer>` : ""}
+${page.sources ? `<footer class="text-sm opacity-60">Source: ${mdInline(page.sources.replace(/^sources?\s*:\s*/i, ""))}</footer>` : ""}
 </main>${types.has("chart") ? CHART_SCRIPT : ""}
 </body>
 </html>`;

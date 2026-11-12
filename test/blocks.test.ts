@@ -51,6 +51,10 @@ describe("pages as data", () => {
     expect(html).toContain("&lt;/td&gt;");
   });
 
+  it("says Source once, even when the agent wrote it", () => {
+    expect(renderPage(parsePage({ title: "t", sources: "Sources: vendor sites", blocks: [{ type: "text", markdown: "hi" }] }) as Page)).toContain("Source: vendor sites</footer>");
+  });
+
   it("uses the narrow reading width when no block needs room", () => {
     expect(renderPage(parsePage({ title: "t", blocks: [{ type: "text", markdown: "hi" }] }) as Page)).toContain("max-w-3xl");
   });
