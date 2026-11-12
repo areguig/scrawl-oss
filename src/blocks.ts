@@ -102,7 +102,8 @@ function renderBlock(b: Block, i: number): string {
     }
     case "compare": {
       const cols = Math.min(b.items.length, 3);
-      const items = b.items.map((o) => {
+      // The recommended option leads, wherever the agent put it.
+      const items = [...b.items].sort((x, y) => Number(!!y.pick) - Number(!!x.pick)).map((o) => {
         const badge = o.badge ?? (o.pick ? "Best pick" : undefined);
         const list = [...(o.pros ?? []).map((p) => `<li class="flex gap-2">${icon("check", "text-success w-5 h-5 mt-0.5 shrink-0")}<span>${esc(p)}</span></li>`), ...(o.cons ?? []).map((p) => `<li class="flex gap-2">${icon("x", "text-error w-5 h-5 mt-0.5 shrink-0")}<span>${esc(p)}</span></li>`)].join("");
         return `<article class="card bg-base-100${o.pick ? " border-2 border-primary" : ""}"><div class="card-body">` +

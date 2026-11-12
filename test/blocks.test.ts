@@ -51,6 +51,11 @@ describe("pages as data", () => {
     expect(html).toContain("&lt;/td&gt;");
   });
 
+  it("puts the recommended option first", () => {
+    const html = renderPage(parsePage({ title: "t", blocks: [{ type: "compare", items: [{ name: "Other" }, { name: "Chosen", pick: true }] }] }) as Page);
+    expect(html.indexOf("Chosen")).toBeLessThan(html.indexOf("Other"));
+  });
+
   it("says Source once, even when the agent wrote it", () => {
     expect(renderPage(parsePage({ title: "t", sources: "Sources: vendor sites", blocks: [{ type: "text", markdown: "hi" }] }) as Page)).toContain("Source: vendor sites</footer>");
   });
