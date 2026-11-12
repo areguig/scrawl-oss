@@ -63,6 +63,29 @@ describe("publish and serve", () => {
   });
 });
 
+describe("page as data", () => {
+  const json = { "content-type": "application/json" };
+
+  it("renders a page sent as blocks, and updates it the same way", async () => {
+    const res = await publish(JSON.stringify({ page: { title: "Pick A", blocks: [{ type: "text", markdown: "Because." }] } }), json);
+    expect(res.status).toBe(201);
+    const { id, edit_key } = await res.json<{ id: string; edit_key: string }>();
+    expect(await (await call(`/p/${id}`)).text()).toContain(">Pick A</h1>");
+    const put = await call(`/api/pads/${id}`, { method: "PUT", body: JSON.stringify({ page: { title: "Pick B", blocks: [{ type: "text", markdown: "Now." }] } }), headers: { "x-edit-key": edit_key, ...json } });
+    expect(put.status).toBe(200);
+    const row = await env.DB.prepare("SELECT title FROM pads WHERE id = ?").bind(id).first<{ title: string }>();
+    expect(row!.title).toBe("Pick B");
+  });
+
+  it("answers what is wrong with a page, and refuses html and page together", async () => {
+    const bad = await (await publish(JSON.stringify({ page: { title: "t", blocks: [{ type: "stats" }] } }), json)).json<{ code: string; error: string }>();
+    expect(bad.code).toBe("bad_page");
+    expect(bad.error).toContain("blocks.0.items");
+    const both = await (await publish(JSON.stringify({ html: "<p>x</p>", page: { title: "t", blocks: [] } }), json)).json<{ code: string }>();
+    expect(both.code).toBe("html_and_page");
+  });
+});
+
 describe("pad subdomains", () => {
   const at = (url: string, init?: RequestInit) => exports.default.fetch(new Request(url, init));
   const publishOn = async (html: string) =>

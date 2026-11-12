@@ -4,8 +4,49 @@ Scrawl turns one HTML page into a shareable link. You only need to fetch URLs an
 
 With the Scrawl MCP server ({{BASE_URL}}/mcp), the tools `get_recipe`, `publish_pad`, `update_pad`, `update_data` and `check_pad` make the calls below for you, with the same fields and replies.
 
+## Send a page as data
+The easiest way, and the most reliable: write no HTML. Send the page as JSON blocks and Scrawl builds it, with the same design as the recipes. Use it whenever the blocks below can say what the page needs. For a calculator, quiz, map, diagram or a layout of your own, use a recipe (section 1).
+
+```
+POST {{BASE_URL}}/api/publish
+content-type: application/json
+
+{"page": {
+  "title": "Pick the Framework 13",
+  "kicker": "Laptops · Nov 2026",
+  "summary": "Best screen and battery for the price.",
+  "blocks": [
+    {"type": "stats", "items": [{"label": "Price", "value": "$999", "note": "base model"}]},
+    {"type": "compare", "items": [
+      {"name": "Framework 13", "pick": true, "price": "$999", "pros": ["Matte screen"], "cons": ["Speakers"], "url": "https://frame.work"},
+      {"name": "XPS 13", "price": "$1,199", "pros": ["Light"]}]},
+    {"type": "text", "title": "Why", "markdown": "It wins on **repairability**."}
+  ],
+  "sources": "Vendor sites, 12 Nov 2026"
+}}
+```
+
+`title` (the takeaway) and `blocks` are required; `kicker`, `summary` and `sources` are optional. Every block may have a `title` except `callout` and `image`. The blocks:
+
+| type | fields | use for |
+|---|---|---|
+| `text` | `markdown` | paragraphs, lists, quotes, links |
+| `callout` | `text` (markdown), `tone`: `info`, `success`, `warning`, `error` | the one note that matters |
+| `stats` | `items`: `[{label, value, note?}]`, up to 6 | key numbers |
+| `chart` | `kind`: `bar`, `line`, `pie`, `doughnut`; `labels`: `[...]`; `series`: `[{name, values: [numbers]}]`, one value per label | a chart |
+| `table` | `columns`: `[...]`; `rows`: `[[...]]`, one cell per column | rows of facts |
+| `compare` | `items`: `[{name, pick?, badge?, price?, note?, pros?: [...], cons?: [...], url?}]`, 2 or more | options side by side; `pick: true` on the recommended one |
+| `ranking` | `items`: `[{label, value: number, note?}]`, `unit?` | ranked bars; Scrawl sorts them and sizes the bars |
+| `checklist` | `items`: `["..."]` | things to tick off, saved on the reader's device |
+| `steps` | `items`: `[{title, time?, text?}]` | a plan, schedule or process |
+| `faq` | `items`: `[{q, a}]` (`a` is markdown) | questions to open |
+| `image` | `src`, `alt`, `caption?` | a photo: an https URL, or the file name of an image sent with the pad |
+| `links` | `items`: `[{label, url}]` | buttons to other pages |
+
+Use only these fields: an unknown field is an error, not ignored. If the page is not valid, the reply is a 400 `bad_page` listing every problem with where it is (`blocks.2.rows.1: has 2 cells, the table has 3 columns`): fix them all and send again. Update the same way: `PUT` with `{"page": {...}}`. `expires_in_days`, `private`, `series` and `images` work as with HTML.
+
 ## 1. Pick a recipe
-Fetch the closest one with GET, replace everything marked `EDIT`, keep the structure. Do not start from a blank page. Every recipe already looks good on a phone and in dark mode.
+For pages the blocks cannot make. Fetch the closest recipe with GET, replace everything marked `EDIT`, keep the structure. Do not start from a blank page. Every recipe already looks good on a phone and in dark mode.
 
 | Recipe | Use when | URL |
 |---|---|---|
@@ -101,7 +142,7 @@ After publishing, tell the user the link and one or two sentences with the main 
 - Photos fill a card well with `<figure><img src="..." alt="..." class="h-48 w-full object-cover"></figure>` as the card's first child.
 
 ## 3. Update the same link
-`PUT {{BASE_URL}}/api/pads/<id>` with header `x-edit-key: <edit_key>` and the new HTML as the body. Do not publish a new pad for each change.
+`PUT {{BASE_URL}}/api/pads/<id>` with header `x-edit-key: <edit_key>` and the new HTML as the body (or JSON `{"page": {...}}`). Do not publish a new pad for each change.
 
 ## Pages a job updates
 For a page a scheduled job refreshes (a weekly report, a dashboard), two things save work and keep history:
@@ -123,7 +164,8 @@ Scrawl's errors are JSON: `{"error": "...", "code": "..."}`.
 
 | Status | Code | What to do |
 |---|---|---|
-| 400 | `empty_pad`, `bad_json`, `bad_expiry` | send the whole HTML, or valid JSON `{"html": "..."}` |
+| 400 | `empty_pad`, `bad_json`, `bad_expiry` | send the whole HTML, or valid JSON `{"html": "..."}` or `{"page": {...}}` |
+| 400 | `bad_page`, `html_and_page` | fix every problem listed in `error`; send `html` or `page`, not both |
 | 400 | `private_at_publish`, `series_at_publish` | leave out `private` and `series` when updating, or publish a new pad |
 | 400 | `bad_data` | send a valid JSON document as the data |
 | 403 | `bad_edit_key` | use the `edit_key` from the publish reply |

@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
+import { PageSchema } from "./blocks";
 
 type Call = (path: string, init?: RequestInit) => Response | Promise<Response>;
 type ToolResult = { content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string })[]; isError?: boolean };
@@ -19,7 +20,8 @@ async function imageResult(res: Response): Promise<ToolResult> {
 }
 
 const page = {
-  html: z.string().describe("The whole HTML page"),
+  html: z.string().optional().describe("The whole HTML page. Send this or page"),
+  page: PageSchema.optional().describe("The page as data: a headline and blocks (text, stats, chart, table, compare...) that Scrawl renders. Send this or html"),
   title: z.string().optional(),
   expires_in_days: z.number().int().min(1).max(365).optional().describe("Days the pad lives after its last update (default 30)"),
   images: z.record(z.string(), z.string()).optional().describe('Image files the page refers to by file name, as {"photo.jpg": "<base64>"}'),
@@ -40,7 +42,7 @@ function scrawlServer(call: Call): McpServer {
   server.registerTool(
     "publish_pad",
     {
-      description: "Publish an HTML page and get its link, plus the id and edit_key needed to change it. Fix every returned warning with update_pad.",
+      description: "Publish a page, as blocks (page) or as HTML (html), and get its link, plus the id and edit_key needed to change it. Fix every returned warning with update_pad.",
       inputSchema: {
         ...page,
         private: z.boolean().optional().describe("Only readers holding the returned url (it carries a key) can open the pad; anyone else gets 404. Set at publish, cannot change later."),
@@ -52,7 +54,7 @@ function scrawlServer(call: Call): McpServer {
 
   server.registerTool(
     "update_pad",
-    { description: "Replace the page of an existing pad, keeping its link.", inputSchema: { ...pad, ...page } },
+    { description: "Replace the page of an existing pad (page or html), keeping its link.", inputSchema: { ...pad, ...page } },
     async ({ id, edit_key, ...body }) => textResult(await call(`/api/pads/${encodeURIComponent(id)}`, { method: "PUT", headers: { ...json, "x-edit-key": edit_key }, body: JSON.stringify(body) })),
   );
 

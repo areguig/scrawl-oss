@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { parsePage, renderPage } from "./blocks";
 import { capturePreview, checkPad } from "./check";
 import { handleMcp } from "./mcp";
 import { deleteImageObjects, IMAGE_NAME, imageHeaders, imageTypeOf } from "./images";
@@ -63,9 +64,9 @@ const lintReply = (issues: Issue[]) => ({ warnings: messages(issues, "fix"), adv
 const fail = (status: number, code: string, error: string) => Response.json({ error, code }, { status });
 
 type PadBody = { html: string; title?: string; ttlDays?: number; isPrivate?: boolean; series?: boolean; images: Map<string, Uint8Array<ArrayBuffer>> };
-type PadFields = { html: unknown; title?: unknown; expires_in_days?: unknown; private?: unknown; series?: unknown; images: Map<string, Uint8Array<ArrayBuffer>> };
+type PadFields = { html: unknown; page?: unknown; title?: unknown; expires_in_days?: unknown; private?: unknown; series?: unknown; images: Map<string, Uint8Array<ArrayBuffer>> };
 
-const BAD_JSON = 'JSON body must be {"html": string, "title"?: string, "expires_in_days"?: number, "private"?: boolean, "series"?: boolean, "images"?: {"<file name>": "<base64>"}}';
+const BAD_JSON = 'JSON body must be {"html": string or "page": {...}, "title"?: string, "expires_in_days"?: number, "private"?: boolean, "series"?: boolean, "images"?: {"<file name>": "<base64>"}}';
 const fromBase64 = (text: string) => Uint8Array.from(atob(text), (ch) => ch.charCodeAt(0));
 
 // A pad comes as raw HTML, as JSON, or as a multipart form whose file parts are the images the page refers to by file name.
@@ -93,6 +94,13 @@ async function readFields(req: Request): Promise<PadFields | Response> {
   }
 }
 
+// A page sent as blocks is rendered here, so everything after (size, lint, images) treats it as any other page.
+function pageHtml(fields: PadFields): string | Response {
+  if (fields.html !== undefined) return fail(400, "html_and_page", 'send either "html" or "page", not both');
+  const page = parsePage(fields.page);
+  return typeof page === "string" ? fail(400, "bad_page", `page is not valid: ${page}. See "Send a page as data" in the guide.`) : renderPage(page);
+}
+
 // expires_in_days, private and series come from the body, or from the query string when the body is raw HTML.
 async function readPad(req: Request, env: Bindings): Promise<PadBody | Response> {
   const maxBytes = Number(env.MAX_PAD_BYTES);
@@ -100,7 +108,9 @@ async function readPad(req: Request, env: Bindings): Promise<PadBody | Response>
   if (Number(req.headers.get("content-length") ?? 0) > maxRequest) return fail(413, "pad_too_large", "pad too large");
   const fields = await readFields(req);
   if (fields instanceof Response) return fields;
-  const { html, images } = fields;
+  const { images } = fields;
+  const html = fields.page === undefined ? fields.html : pageHtml(fields);
+  if (html instanceof Response) return html;
   if (typeof html !== "string") return fail(400, "bad_json", BAD_JSON);
   if (new TextEncoder().encode(html).length > maxBytes) return fail(413, "pad_too_large", "pad too large");
   const title = typeof fields.title === "string" ? fields.title.slice(0, 120) : undefined;
