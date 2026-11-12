@@ -26,6 +26,7 @@
 ## Why Scrawl
 
 - **Works with small models.** Agents can send a page as JSON blocks (stats, chart, table, comparison, checklist…) and write no HTML at all, or start from one of 15 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript, and agents can check their page on a phone-sized screen.
+- **Room for strong models.** Bigger models can go past the recipes: their own design, any npm library as an ES module, WebGL, audio, workers, fonts, 3D models and data files sent with the page, file downloads, and checks at phone and desktop width, in light and dark mode.
 - **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
 - **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days. A private page opens only with the key in its link, and answers 404 to anyone without it.
 - **Ask for changes from your phone.** Each page has a Comment link. Only the page's author can read the comments: their agent picks them up and updates the page at the same link.

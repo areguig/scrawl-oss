@@ -46,7 +46,7 @@ content-type: application/json
 Use only these fields: an unknown field is an error, not ignored. If the page is not valid, the reply is a 400 `bad_page` listing every problem with where it is (`blocks.2.rows.1: has 2 cells, the table has 3 columns`): fix them all and send again. Update the same way: `PUT` with `{"page": {...}}`. `expires_in_days`, `private`, `series` and `images` work as with HTML.
 
 ## 1. Pick a recipe
-For pages the blocks cannot make. Fetch the closest recipe with GET, replace everything marked `EDIT`, keep the structure. Do not start from a blank page. Every recipe already looks good on a phone and in dark mode.
+For pages the blocks cannot make. Fetch the closest recipe with GET, replace everything marked `EDIT`, keep the structure. Do not start from a blank page, unless you are making your own design (see "Your own design"). Every recipe already looks good on a phone and in dark mode.
 
 | Recipe | Use when | URL |
 |---|---|---|
@@ -157,7 +157,7 @@ For a page a scheduled job refreshes (a weekly report, a dashboard), two things 
 `private` and `series` are set at publish and cannot change later.
 
 ## 4. Check it on a phone
-`POST {{BASE_URL}}/api/pads/<id>/check` with header `x-edit-key: <edit_key>` opens the pad on a 375px phone screen and returns `{"problems": [...]}`: sideways scrolling, small text, small buttons, images or scripts that fail. Fix them and update the pad. Add `?screenshot=1` to get a PNG of the whole page instead. It takes a few seconds; check once after your last change, not after every update.
+`POST {{BASE_URL}}/api/pads/<id>/check` with header `x-edit-key: <edit_key>` opens the pad on a 375px phone screen and returns `{"problems": [...]}`: sideways scrolling, small text, small buttons, images or scripts that fail. Fix them and update the pad. Add `?screenshot=1` to get a PNG of the whole page instead, `?desktop=1` for a 1280px screen and `?dark=1` for dark mode (they combine: `?screenshot=1&dark=1`). It takes a few seconds; check once after your last change, not after every update.
 
 ## 5. Read comments from readers
 Each pad has a Comment link at the bottom. Readers, usually the user on their phone, use it to ask for changes. When the user says they left a comment, or before you update a pad:
@@ -194,12 +194,27 @@ An error that is not JSON (an HTML page, often a 403) comes from a firewall betw
 - At most one alert per page. Most text belongs in cards, not in alerts.
 - A shared link previews as the pad's title, its first paragraph (or `<meta name="description">`) and a picture of the top of the page on a wide screen, so make that top count.
 - End with a footer in the form `Source: <where>, <date>.` Mark estimates as approximate.
-- Use the theme as it is: theme colors only, no fixed widths, no custom fonts.
+- With blocks or a recipe, use the theme as it is: theme colors only, no fixed widths, no custom fonts. For a design of your own, see "Your own design".
 - Charts: one message per chart, sorted bars, start the axis at zero, no legend for a single series.
 - Use the right recipe: a quiz uses `quiz`, a plan or schedule uses `itinerary`, a report uses `article`, shares or rankings use `ranking`, things to tick off use `checklist`, open-to-read-more items use `faq`, a process uses `diagram`, places use `map`.
 
+## Your own design
+Blocks and recipes are the safe path. When the user wants something more (an interactive explainer, a simulation, a game, a data story, a 3D scene, a page with its own look) and you can design it well, build the page your own way. Do not water it down to look like a recipe.
+
+What stays required: no sideways scrolling on a 375px phone, readable in light and dark mode (style both with `prefers-color-scheme`, or pick one and declare it with `<meta name="color-scheme" content="dark">`), a `<title>`, scripts from the hosts below, the Rules.
+
+What you can use:
+- Any npm package as an ES module: `<script type="module">import * as THREE from "https://esm.sh/three@0.170.0";</script>`. Also from jsdelivr, cdnjs and unpkg: D3, GSAP, Matter.js, Tone.js, Pyodide, Observable Plot...
+- Canvas, WebGL and WebGPU, Web Audio, web workers (from `blob:` URLs), WebAssembly, and `fetch` to any https API that allows CORS.
+- Your own fonts (any https stylesheet, such as Google Fonts, or an uploaded WOFF2), sounds, GLB models and data files (see Images and other files).
+- File downloads (`<a download>` with a `blob:` URL, for exports), the clipboard, fullscreen, and pointer lock after a click.
+- Saving per reader with `localStorage`, and the pad's JSON data for pages a job refreshes.
+- `/scrawl.js` is optional: keep it for Tailwind, daisyUI and Alpine, or leave it out and write your own CSS.
+
+Make it hold up: touch and mouse both work, motion respects `prefers-reduced-motion`, canvases cap `devicePixelRatio` at 2 and animations pause when hidden, so a phone stays cool. Then check it three ways with screenshots and look at them: phone, `?desktop=1` and `?dark=1`.
+
 ## Rules
-- One file. Extra CSS in `<style>`, extra JavaScript in `<script>`. The only local file allowed is `/scrawl.js`.
+- One HTML file, plus the files you send with it. Extra CSS in `<style>`, extra JavaScript in `<script>`. Local files other than those you send: only `/scrawl.js`.
 - Mobile first. Keep `<meta name="viewport" content="width=device-width, initial-scale=1">`. No fixed widths over 480px. Recipes are already right on a phone.
 - Add a `<title>`.
 - Scripts only from: cdn.jsdelivr.net, cdnjs.cloudflare.com, unpkg.com, cdn.tailwindcss.com, esm.sh. Pin a version (`chart.js@4.4.0`). Stylesheets, fonts and images may come from any https URL.
