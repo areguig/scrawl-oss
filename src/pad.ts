@@ -221,7 +221,7 @@ export async function alpineIssues(html: string): Promise<Issue[]> {
 export function padHeaders(cdnAllowlist: string, isolated = false): Record<string, string> {
   const cdns = cdnAllowlist.split(/\s+/).filter(Boolean).map((h) => `https://${h}`).join(" ");
   const csp = [
-    `sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals${isolated ? " allow-same-origin" : ""}`,
+    `sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-pointer-lock${isolated ? " allow-same-origin" : ""}`,
     "default-src 'none'",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cdns}`,
     "style-src 'self' 'unsafe-inline' https:",

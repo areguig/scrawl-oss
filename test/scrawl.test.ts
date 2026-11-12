@@ -24,7 +24,8 @@ describe("publish and serve", () => {
     expect(csp).toContain("https://cdn.jsdelivr.net");
     expect(csp).toContain("form-action 'none'");
     expect(csp).toContain("style-src 'self' 'unsafe-inline' https:");
-    expect(csp).toContain("font-src data: https:");
+    expect(csp).toContain("font-src 'self' data: https:");
+    expect(csp).toContain("allow-downloads allow-pointer-lock");
     expect(csp).toContain("img-src 'self' data: blob: https:");
     expect(page.headers.get("x-robots-tag")).toContain("noindex");
     const body = await page.text();
