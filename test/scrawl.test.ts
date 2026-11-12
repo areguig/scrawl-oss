@@ -86,6 +86,51 @@ describe("page as data", () => {
   });
 });
 
+describe("comments", () => {
+  const json = { "content-type": "application/json" };
+  const comment = (pad: string, text: string, ip = "10.9.0.1", k = "") =>
+    call(`/api/comments${k && `?k=${k}`}`, { method: "POST", body: JSON.stringify({ pad, text }), headers: { ...json, "cf-connecting-ip": ip } });
+  const read = (id: string, key: string) => call(`/api/pads/${id}/comments`, { headers: { "x-edit-key": key } });
+
+  it("links each pad to its comment page, with a private pad's key", async () => {
+    const { id } = await (await publish("<title>t</title>")).json<{ id: string }>();
+    expect(await (await call(`/p/${id}`)).text()).toContain(`href="https://scrawl.test/comment?pad=${id}"`);
+    const priv = await (await publish(JSON.stringify({ html: "<title>t</title>", private: true }), json)).json<{ id: string; url: string }>();
+    const k = new URL(priv.url).searchParams.get("k")!;
+    expect(await (await call(`/p/${priv.id}?k=${k}`)).text()).toContain(`comment?pad=${priv.id}&amp;k=${k}`);
+  });
+
+  it("lets readers comment, and only the edit key holder read and clear them", async () => {
+    const { id, edit_key } = await (await publish("<title>t</title>")).json<{ id: string; edit_key: string }>();
+    expect((await comment(id, "  Bigger chart please ")).status).toBe(201);
+    expect((await comment(id, "Drop row 3")).status).toBe(201);
+    expect((await read(id, "wrong")).status).toBe(403);
+    const { comments } = await (await read(id, edit_key)).json<{ comments: { id: number; text: string }[] }>();
+    expect(comments.map((x) => x.text)).toEqual(["Bigger chart please", "Drop row 3"]);
+    await comment(id, "came in later");
+    expect((await call(`/api/pads/${id}/comments?upto=${comments[1].id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } })).status).toBe(204);
+    expect((await (await read(id, edit_key)).json<{ comments: { text: string }[] }>()).comments.map((x) => x.text)).toEqual(["came in later"]);
+  });
+
+  it("refuses empty or long comments, unknown pads and private pads without the key", async () => {
+    const { id } = await (await publish("<title>t</title>")).json<{ id: string }>();
+    expect((await comment(id, " ")).status).toBe(400);
+    expect((await comment(id, "x".repeat(2001))).status).toBe(400);
+    expect((await comment("nopenope", "hi")).status).toBe(404);
+    const priv = await (await publish(JSON.stringify({ html: "<title>t</title>", private: true }), json)).json<{ id: string; url: string }>();
+    expect((await comment(priv.id, "hi")).status).toBe(404);
+    expect((await comment(priv.id, "hi", "10.9.0.2", new URL(priv.url).searchParams.get("k")!)).status).toBe(201);
+  });
+
+  it("limits comments per reader per hour, and deletes them with the pad", async () => {
+    const { id, edit_key } = await (await publish("<title>t</title>")).json<{ id: string; edit_key: string }>();
+    for (let i = 0; i < 20; i++) await comment(id, `c${i}`, "10.9.0.3");
+    expect((await comment(id, "one more", "10.9.0.3")).status).toBe(429);
+    await call(`/api/pads/${id}`, { method: "DELETE", headers: { "x-edit-key": edit_key } });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE pad_id = ?").bind(id).first("n")).toBe(0);
+  });
+});
+
 describe("pad subdomains", () => {
   const at = (url: string, init?: RequestInit) => exports.default.fetch(new Request(url, init));
   const publishOn = async (html: string) =>
@@ -762,7 +807,7 @@ describe("mcp", () => {
     const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.instructions).toContain("get_guide");
     const names = (await rpc("tools/list")).tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "update_data", "check_pad"]);
+    expect(names).toEqual(["get_guide", "get_recipe", "publish_pad", "update_pad", "update_data", "check_pad", "get_comments", "clear_comments"]);
   });
 
   it("updates a pad's data", async () => {

@@ -28,6 +28,7 @@
 - **Works with small models.** Agents can send a page as JSON blocks (stats, chart, table, comparison, checklist…) and write no HTML at all, or start from one of 15 recipes and a theme built on Tailwind, daisyUI and Alpine.js. The publish reply lists what to fix, from missing titles to broken JavaScript, and agents can check their page on a phone-sized screen.
 - **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
 - **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days. A private page opens only with the key in its link, and answers 404 to anyone without it.
+- **Ask for changes from your phone.** Each page has a Comment link. Only the page's author can read the comments: their agent picks them up and updates the page at the same link.
 - **Made for scheduled jobs.** A job can refresh a page's JSON data without sending the page again, and a series page keeps its last 30 editions.
 - **Nothing to install.** Any agent that can fetch a URL can publish. Claude Code, Copilot CLI, OpenCode and others get a one-line skill, and MCP clients can add Scrawl as a remote server (`/mcp`).
 
@@ -140,7 +141,7 @@ Settings live in `vars` in `wrangler.jsonc`. When you run Scrawl with Docker or 
 
 With Docker or Bun, `DATA_DIR` (default `./data`) and `PORT` (default `8787`) set where data lives and the port.
 
-**MCP:** `/mcp` is a remote MCP server (Streamable HTTP) with tools to read the guide and recipes, publish, update and check pads, and update a pad's data.
+**MCP:** `/mcp` is a remote MCP server (Streamable HTTP) with tools to read the guide and recipes, publish, update and check pads, update a pad's data, and read readers' comments.
 
 **Monitoring:** `GET /health` answers `{"ok": true}` while the database is up.
 

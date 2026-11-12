@@ -185,7 +185,8 @@ async function servePad(c: Context<{ Bindings: Bindings }>, id: string, isolated
   // Versioned by the update, so link previews cached by chat apps refresh when the pad changes; private pads get the Scrawl card.
   const image = row.link_key ? undefined : `${padImageUrl(c, id, PREVIEW)}?v=${row.updated_at}`;
   const link = row.series ? { label: "Past editions", href: padUrl(c, id, row.link_key, "e") } : undefined;
-  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key, data: row.data, link });
+  const comment = `${home}/comment?pad=${id}${row.link_key ? `&k=${encodeURIComponent(row.link_key)}` : ""}`;
+  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key, data: row.data, link, comment });
   return new Response(html, { headers: padHeaders(c.env.CDN_ALLOWLIST, isolated) });
 }
 
@@ -361,6 +362,7 @@ app.post("/api/publish", async (c) => {
       ...lintReply(issues),
       ...(body.images.size ? { images } : {}),
       update: `PUT ${origin}/api/pads/${id} with header x-edit-key: ${editKey} and the new HTML as the body (same link). Each update keeps the pad another ${ttlDays} days.`,
+      comments: `GET ${origin}/api/pads/${id}/comments with header x-edit-key: ${editKey} lists what readers asked to change, from the pad's Comment link.`,
       delete: `DELETE ${origin}/api/pads/${id} with header x-edit-key: ${editKey}`,
     },
     201,
@@ -423,7 +425,7 @@ app.delete("/api/pads/:id", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
-  await c.env.DB.batch([c.env.DB.prepare("DELETE FROM pads WHERE id = ?").bind(id), c.env.DB.prepare("DELETE FROM editions WHERE pad_id = ?").bind(id)]);
+  await c.env.DB.batch(["pads WHERE id", "editions WHERE pad_id", "comments WHERE pad_id"].map((where) => c.env.DB.prepare(`DELETE FROM ${where} = ?`).bind(id)));
   await deletePadImages(c.env, [id]);
   return c.body(null, 204);
 });
@@ -501,6 +503,46 @@ app.post("/api/report", async (c) => {
   return c.json({ ok: true });
 });
 
+const COMMENT_MAX_CHARS = 2000;
+const COMMENTS_PER_PAD = 100;
+const COMMENTS_PER_HOUR = 20;
+
+// A reader asks the author for a change; a private pad's key comes as ?k=, as on the pad itself.
+app.post("/api/comments", async (c) => {
+  const body = await c.req.json<{ pad?: unknown; text?: unknown }>().catch(() => ({}) as Record<string, unknown>);
+  const pad = typeof body.pad === "string" ? body.pad : "";
+  const text = typeof body.text === "string" ? body.text.trim() : "";
+  if (!text || text.length > COMMENT_MAX_CHARS) return fail(400, "bad_comment", `text must be 1 to ${COMMENT_MAX_CHARS} characters`);
+  if ((await livePad(c, pad)) instanceof Response) return fail(404, "not_found", "not found");
+  const ipHash = await hashKey(clientIp(c));
+  const counts = await c.env.DB.prepare("SELECT (SELECT COUNT(*) FROM comments WHERE ip_hash = ? AND created_at > ?) AS mine, (SELECT COUNT(*) FROM comments WHERE pad_id = ?) AS waiting")
+    .bind(ipHash, Date.now() - 3_600_000, pad)
+    .first<{ mine: number; waiting: number }>();
+  if (counts!.mine >= COMMENTS_PER_HOUR) return fail(429, "comment_limit", "too many comments, try again later");
+  if (counts!.waiting >= COMMENTS_PER_PAD) return fail(422, "comments_full", "this page has too many comments waiting for its author");
+  await c.env.DB.prepare("INSERT INTO comments (pad_id, text, ip_hash, created_at) VALUES (?, ?, ?, ?)").bind(pad, text, ipHash, Date.now()).run();
+  return c.json({ ok: true }, 201);
+});
+
+app.get("/api/pads/:id/comments", async (c) => {
+  const id = c.req.param("id");
+  const auth = await authorised(c, id);
+  if (auth !== true) return authFailure(auth);
+  const rows = await c.env.DB.prepare("SELECT id, text, created_at FROM comments WHERE pad_id = ? ORDER BY id").bind(id).all<{ id: number; text: string; created_at: number }>();
+  return c.json({ comments: rows.results.map((r) => ({ id: r.id, text: r.text, created_at: new Date(r.created_at).toISOString() })) });
+});
+
+// ?upto=<id> clears only the comments read, not one that came in since.
+app.delete("/api/pads/:id/comments", async (c) => {
+  const id = c.req.param("id");
+  const auth = await authorised(c, id);
+  if (auth !== true) return authFailure(auth);
+  const upto = Number(c.req.query("upto") ?? Number.MAX_SAFE_INTEGER);
+  if (!Number.isInteger(upto)) return fail(400, "bad_upto", "upto must be a comment id");
+  await c.env.DB.prepare("DELETE FROM comments WHERE pad_id = ? AND id <= ?").bind(id, upto).run();
+  return c.body(null, 204);
+});
+
 const CLIENT_HEADERS = ["cf-connecting-ip", "x-forwarded-for", "x-real-ip"];
 
 // MCP tools call the HTTP API in-process, as the same client, so limits and checks apply to both alike.
@@ -538,6 +580,7 @@ export async function deleteExpired(env: Bindings, now = Date.now()) {
     env.DB.prepare("DELETE FROM pads WHERE expires_at < ?").bind(now),
     env.DB.prepare("DELETE FROM reports WHERE pad_id NOT IN (SELECT id FROM pads)"),
     env.DB.prepare("DELETE FROM editions WHERE pad_id NOT IN (SELECT id FROM pads)"),
+    env.DB.prepare("DELETE FROM comments WHERE pad_id NOT IN (SELECT id FROM pads)"),
   ]);
   const orphans = await env.DB.prepare("SELECT DISTINCT pad_id FROM images WHERE pad_id NOT IN (SELECT id FROM pads)").all<{ pad_id: string }>();
   await deletePadImages(env, orphans.results.map((r) => r.pad_id));
