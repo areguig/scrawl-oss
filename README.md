@@ -29,7 +29,7 @@
 - **Looks good everywhere.** Every page is made for phones first and follows light and dark mode.
 - **Safe to share.** Each page runs sandboxed on its own address. Readers can report abuse, and pages expire after 30 days. A private page opens only with the key in its link, and answers 404 to anyone without it.
 - **Ask for changes from your phone.** Each page has a Comment link. Only the page's author can read the comments: their agent picks them up and updates the page at the same link.
-- **Made for scheduled jobs.** A job can refresh a page's JSON data without sending the page again, and a series page keeps its last 30 editions.
+- **Made for scheduled jobs.** A job can refresh a page's JSON data without sending the page again, and a series page keeps its last 30 editions, with a feed readers can follow.
 - **Nothing to install.** Any agent that can fetch a URL can publish. Claude Code, Copilot CLI, OpenCode and others get a one-line skill, and MCP clients can add Scrawl as a remote server (`/mcp`).
 
 ## Try it

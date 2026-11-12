@@ -97,11 +97,12 @@ function appendToBody(html: string, snippet: string): string {
 }
 
 // image is the link preview picture, the Scrawl card by default; describe is false for private pads, whose previews show no content.
-type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string; describe?: boolean; data?: string | null; link?: { label: string; href: string }; comment?: string };
+type PadContext = { origin: string; home?: string; isolated?: boolean; padId?: string; image?: string; describe?: boolean; data?: string | null; link?: { label: string; href: string }; comment?: string; feed?: string };
 
 // An isolated pad has its own origin, so real localStorage works and needs no shim.
-export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png`, describe = true, data, link, comment }: PadContext): string {
-  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, image, describe) + BASE_CSS + (isolated ? "" : STORAGE_SHIM) + (data ? dataScript(data) : ""));
+export function preparePad(html: string, { origin, home = origin, isolated = false, padId, image = `${origin}/og.png`, describe = true, data, link, comment, feed }: PadContext): string {
+  const feedLink = feed ? `<link rel="alternate" type="application/atom+xml" title="New editions" href="${escapeAttr(feed)}">` : "";
+  const head = injectIntoHead(html, (hasViewport(html) ? "" : VIEWPORT) + brandTags(html, image, describe) + feedLink + BASE_CSS + (isolated ? "" : STORAGE_SHIM) + (data ? dataScript(data) : ""));
   return appendToBody(head, madeWith(home, padId, link, comment));
 }
 

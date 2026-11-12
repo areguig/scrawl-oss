@@ -186,7 +186,8 @@ async function servePad(c: Context<{ Bindings: Bindings }>, id: string, isolated
   const image = row.link_key ? undefined : `${padImageUrl(c, id, PREVIEW)}?v=${row.updated_at}`;
   const link = row.series ? { label: "Past editions", href: padUrl(c, id, row.link_key, "e") } : undefined;
   const comment = `${home}/comment?pad=${id}${row.link_key ? `&k=${encodeURIComponent(row.link_key)}` : ""}`;
-  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key, data: row.data, link, comment });
+  const feed = row.series ? padUrl(c, id, row.link_key, "feed.xml") : undefined;
+  const html = preparePad(row.html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, image, describe: !row.link_key, data: row.data, link, comment, feed });
   return new Response(html, { headers: padHeaders(c.env.CDN_ALLOWLIST, isolated) });
 }
 
@@ -201,9 +202,24 @@ async function serveEditions(c: Context<{ Bindings: Bindings }>, id: string, iso
   const item = (href: string, label: string, title: string, at: number) =>
     `<li><a href="${escapeAttr(href)}">${label}</a> · ${escapeAttr(title)} <small>${editionDate(at)}</small></li>`;
   const items = [item(padUrl(c, id, pad.link_key), "Latest", pad.title, pad.updated_at), ...rows.results.map((e) => item(padUrl(c, id, pad.link_key, `e/${e.n}`), `Edition ${e.n}`, e.title, e.created_at))];
-  const html = `<!doctype html><html><head><title>Past editions: ${escapeAttr(pad.title)}</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:40rem;margin:0 auto;padding:24px 16px}small{opacity:.6}</style></head><body><h1>Past editions</h1><ul>${items.join("")}</ul></body></html>`;
+  const feed = padUrl(c, id, pad.link_key, "feed.xml");
+  const html = `<!doctype html><html><head><title>Past editions: ${escapeAttr(pad.title)}</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:40rem;margin:0 auto;padding:24px 16px}small{opacity:.6}</style></head><body><h1>Past editions</h1><ul>${items.join("")}</ul><p><a href="${escapeAttr(feed)}">Follow new editions in a feed reader</a></p></body></html>`;
   const home = isolated ? `https://${c.env.PAD_DOMAIN}` : publicOrigin(c);
   return new Response(preparePad(html, { origin: new URL(c.req.url).origin, home, isolated, padId: id, describe: false }), { headers: padHeaders(c.env.CDN_ALLOWLIST, isolated) });
+}
+
+// A series pad as an Atom feed, so feed readers notify on each new edition; the latest entry changes id with each update.
+async function serveFeed(c: Context<{ Bindings: Bindings }>, id: string) {
+  const pad = await livePad(c, id);
+  if (pad instanceof Response) return pad;
+  if (!pad.series) return c.text("Not found", 404);
+  const rows = await c.env.DB.prepare("SELECT n, title, created_at FROM editions WHERE pad_id = ? ORDER BY n DESC").bind(id).all<{ n: number; title: string; created_at: number }>();
+  const latest = padUrl(c, id, pad.link_key);
+  const entry = (href: string, entryId: string, title: string, at: number) =>
+    `<entry><title>${escapeAttr(title)}</title><link href="${escapeAttr(href)}"/><id>${escapeAttr(entryId)}</id><updated>${new Date(at).toISOString()}</updated></entry>`;
+  const entries = [entry(latest, `${padUrl(c, id)}#${pad.updated_at}`, pad.title, pad.updated_at), ...rows.results.map((e) => entry(padUrl(c, id, pad.link_key, `e/${e.n}`), padUrl(c, id, null, `e/${e.n}`), e.title, e.created_at))];
+  const xml = `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>${escapeAttr(pad.title)}</title><link href="${escapeAttr(latest)}"/><id>${escapeAttr(padUrl(c, id))}</id><updated>${new Date(pad.updated_at).toISOString()}</updated><author><name>Scrawl</name></author>${entries.join("")}</feed>`;
+  return new Response(xml, { headers: { "content-type": "application/atom+xml; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" } });
 }
 
 // One past edition, with the data it had then, served like the pad itself.
@@ -263,6 +279,7 @@ app.use("*", async (c, next) => {
   if (c.req.path === "/") return servePad(c, id, true);
   if (c.req.path === `/i/${PREVIEW}`) return servePreview(c, id);
   if (c.req.path === "/e") return serveEditions(c, id, true);
+  if (c.req.path === "/feed.xml") return serveFeed(c, id);
   if (c.req.path.startsWith("/e/")) return serveEdition(c, id, c.req.path.slice(3), true);
   if (c.req.path.startsWith("/i/")) return serveImage(c, id, c.req.path.slice(3));
   if (PAD_ASSETS.has(c.req.path)) return fetchAsset(c);
@@ -357,7 +374,7 @@ app.post("/api/publish", async (c) => {
       url: padUrl(c, id, linkKey),
       edit_key: editKey,
       ...(linkKey ? { private: true } : {}),
-      ...(series ? { series: true } : {}),
+      ...(series ? { series: true, feed: padUrl(c, id, linkKey, "feed.xml") } : {}),
       expires_at: new Date(expiresAt).toISOString(),
       ...lintReply(issues),
       ...(body.images.size ? { images } : {}),
@@ -560,6 +577,7 @@ app.all("/mcp", (c) =>
 app.get(`/p/:id/i/${PREVIEW}`, (c) => servePreview(c, c.req.param("id")));
 app.get("/p/:id/i/:name", (c) => serveImage(c, c.req.param("id"), c.req.param("name")));
 app.get("/p/:id/e", (c) => serveEditions(c, c.req.param("id"), false));
+app.get("/p/:id/feed.xml", (c) => serveFeed(c, c.req.param("id")));
 app.get("/p/:id/e/:n", (c) => serveEdition(c, c.req.param("id"), c.req.param("n"), false));
 
 app.get("/p/:id", async (c) => {

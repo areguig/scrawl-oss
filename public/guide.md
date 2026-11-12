@@ -152,7 +152,7 @@ For a page a scheduled job refreshes (a weekly report, a dashboard), two things 
   <script>const data = JSON.parse(document.getElementById("scrawl-data")?.textContent ?? "null");</script>
   ```
   Publish the page once, then send only the data on each run. The `live` recipe is built this way. Readers see the new data when they reload.
-- **Past editions.** Publish with `"series": true` (with raw HTML, `?series=1`). Each page update then keeps the page it replaces, with its data, as an edition. The update reply's `archived` is that edition's link, and the pad links to its past editions. The last 30 editions are kept. Data updates alone do not make an edition.
+- **Past editions.** Publish with `"series": true` (with raw HTML, `?series=1`). Each page update then keeps the page it replaces, with its data, as an edition. The update reply's `archived` is that edition's link, and the pad links to its past editions. The last 30 editions are kept. The publish reply's `feed` is an Atom feed of the editions: give it to the user if they want a notification from their feed reader on each new edition. Data updates alone do not make an edition.
 
 `private` and `series` are set at publish and cannot change later.
 

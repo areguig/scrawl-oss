@@ -325,6 +325,22 @@ describe("data and series", () => {
     expect(list).toContain("Latest</a> · Week 2");
   });
 
+  it("offers a series pad's editions as an Atom feed, found from the pad, with a private pad's key", async () => {
+    const { id, url, edit_key } = await publishJson({ html: "<title>Week 1</title>", series: true });
+    expect(await page(url)).toContain(`<link rel="alternate" type="application/atom+xml" title="New editions" href="https://scrawl.test/p/${id}/feed.xml">`);
+    await putPage(id, edit_key, "<title>Week 2 & more</title>");
+    const res = await call(`/p/${id}/feed.xml`);
+    expect(res.headers.get("content-type")).toContain("application/atom+xml");
+    const xml = await res.text();
+    expect(xml).toContain("<title>Week 2 &amp; more</title>");
+    expect(xml).toContain(`<link href="https://scrawl.test/p/${id}/e/1"/>`);
+    expect(xml.match(/<entry>/g)).toHaveLength(2);
+    expect((await call(`/p/${(await publishJson({ html: "<title>t</title>" })).id}/feed.xml`)).status).toBe(404);
+    const priv = await publishJson({ html: "<title>t</title>", series: true, private: true });
+    expect((await call(`/p/${priv.id}/feed.xml`)).status).toBe(404);
+    expect((await call(`/p/${priv.id}/feed.xml${new URL(priv.url).search}`)).status).toBe(200);
+  });
+
   it("keeps only the last 30 editions, and deletes them with the pad", async () => {
     const { id, edit_key } = await publishJson({ html: "<title>t</title>", series: true });
     for (let i = 0; i < 32; i++) await putPage(id, edit_key, `<title>v${i}</title>`);
