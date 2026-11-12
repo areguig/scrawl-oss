@@ -71,11 +71,13 @@ function scrawlServer(call: Call): McpServer {
   server.registerTool(
     "check_pad",
     {
-      description: "Open the pad on a phone screen and list what readers would hit (sideways scrolling, small text, broken images, script errors), or get a screenshot.",
-      inputSchema: { ...pad, screenshot: z.boolean().optional() },
+      description: "Open the pad on a phone screen and list what readers would hit (sideways scrolling, small text, broken images, script errors), or get a screenshot. desktop and dark open it on a 1280px screen or in dark mode instead.",
+      inputSchema: { ...pad, screenshot: z.boolean().optional(), desktop: z.boolean().optional(), dark: z.boolean().optional() },
     },
-    async ({ id, edit_key, screenshot }) =>
-      imageResult(await call(`/api/pads/${encodeURIComponent(id)}/check${screenshot ? "?screenshot=1" : ""}`, { method: "POST", headers: { "x-edit-key": edit_key } })),
+    async ({ id, edit_key, ...flags }) => {
+      const query = new URLSearchParams(Object.entries(flags).filter(([, on]) => on).map(([name]) => [name, "1"])).toString();
+      return imageResult(await call(`/api/pads/${encodeURIComponent(id)}/check${query && `?${query}`}`, { method: "POST", headers: { "x-edit-key": edit_key } }));
+    },
   );
 
   server.registerTool(

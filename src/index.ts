@@ -484,14 +484,15 @@ app.put("/api/pads/:id/data", async (c) => {
   return c.json({ id, url: padUrl(c, id, row!.link_key), bytes: data.length, expires_at: new Date(row!.expires_at).toISOString() });
 });
 
-// The author sees the pad as a phone reader does: problems found, or the screenshot with ?screenshot=1.
+// The author sees the pad as a phone reader does (?desktop=1 and ?dark=1 for other readers): problems found, or the screenshot with ?screenshot=1.
 app.post("/api/pads/:id/check", async (c) => {
   const id = c.req.param("id");
   const auth = await authorised(c, id);
   if (auth !== true) return authFailure(auth);
   if (!c.env.BROWSER) return fail(501, "check_unavailable", "this Scrawl has no browser to check pads with");
-  const withScreenshot = c.req.query("screenshot") === "1";
-  const report = await checkPad(c.env.BROWSER, padUrl(c, id, (await padFlags(c.env, id)).link_key), withScreenshot).catch((err) => {
+  const on = (name: string) => c.req.query(name) === "1";
+  const options = { screenshot: on("screenshot"), desktop: on("desktop"), dark: on("dark") };
+  const report = await checkPad(c.env.BROWSER, padUrl(c, id, (await padFlags(c.env, id)).link_key), options).catch((err) => {
     console.error(err);
     return fail(503, "check_busy", "no browser free to check the pad: try again in a minute");
   });

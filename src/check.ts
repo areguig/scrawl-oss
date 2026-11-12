@@ -3,6 +3,7 @@
 import type { Browser, Page, Viewport } from "@cloudflare/puppeteer";
 
 const PHONE = { width: 375, height: 812, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
+const DESKTOP = { width: 1280, height: 800, deviceScaleFactor: 1 };
 const CARD = { width: 1200, height: 630, deviceScaleFactor: 1 };
 const MIN_TEXT_PX = 12;
 const MIN_TAP_PX = 24;
@@ -25,7 +26,7 @@ function measure(minText: number, minTap: number) {
   if (document.documentElement.scrollWidth > width + 1) {
     // The innermost elements that stick out, not every ancestor around them.
     const wide = shown.filter((el) => el.getBoundingClientRect().right > width + 1 && ![...el.children].some((child) => child.getBoundingClientRect().right > width + 1));
-    problems.push(`The page scrolls sideways on a ${width}px phone. Wider than the screen: ${sample(wide)}.`);
+    problems.push(`The page scrolls sideways on a ${width}px wide screen. Wider than the screen: ${sample(wide)}.`);
   }
   const small = shown.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent?.trim()) && parseFloat(getComputedStyle(el).fontSize) < minText);
   if (small.length) problems.push(`${small.length} text elements under ${minText}px: ${sample(small, (el) => `${name(el)} at ${getComputedStyle(el).fontSize}`)}.`);
@@ -65,9 +66,13 @@ async function openPad(browserBinding: Fetcher, url: string, viewport: Viewport,
   }
 }
 
-export async function checkPad(browserBinding: Fetcher, url: string, withScreenshot: boolean): Promise<CheckReport & { screenshot?: Uint8Array<ArrayBuffer> }> {
+// A phone in light mode by default; desktop and dark show what a richer page does there.
+export type CheckOptions = { screenshot?: boolean; desktop?: boolean; dark?: boolean };
+
+export async function checkPad(browserBinding: Fetcher, url: string, { screenshot: withScreenshot, desktop, dark }: CheckOptions): Promise<CheckReport & { screenshot?: Uint8Array<ArrayBuffer> }> {
   const errors: string[] = [];
-  const { browser, page } = await openPad(browserBinding, url, PHONE, (page) => {
+  const { browser, page } = await openPad(browserBinding, url, desktop ? DESKTOP : PHONE, async (page) => {
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: dark ? "dark" : "light" }]);
     page.on("pageerror", (err) => errors.push(`Script error: ${(err as Error).message}`));
     // Images that fail are reported by measure(), and the browser logs each failed load once more.
     page.on("console", (msg) => msg.type() === "error" && !msg.text().startsWith("Failed to load resource") && errors.push(`Console error: ${msg.text().trim()}`));
